@@ -2,190 +2,113 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Viny Map</title>
+  <title>Viny Map – Custom Icons</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-
   <style>
-    body {
+    body, html {
       margin: 0;
-      font-family: Arial, sans-serif;
-      background-color: #121212;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
+      padding: 0;
+      height: 100%;
     }
-
-    .search-container {
-      padding: 1rem;
-      background-color: #1e1e1e;
-      text-align: center;
-    }
-
     #map {
-      flex: 1;
-      height: 600px;
+      height: 100vh;
       width: 100%;
-    }
-
-    input[type="text"] {
-      padding: 0.5rem;
-      width: 250px;
-      border-radius: 4px;
-      border: none;
-    }
-
-    button {
-      padding: 0.5rem 1rem;
-      background-color: #ff4f5a;
-      border: none;
-      color: white;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: bold;
-    }
-
-    button:hover {
-      background-color: #e03e48;
-    }
-
-    footer {
-      background-color: #1a1a1a;
-      color: #ccc;
-      text-align: center;
-      padding: 1.5rem;
-      font-size: 0.9rem;
-    }
-
-    .footer-links {
-      margin-top: 0.5rem;
-    }
-
-    .footer-links a {
-      color: #ff4f5a;
-      margin: 0 10px;
-      text-decoration: none;
-      font-weight: bold;
-    }
-
-    .footer-links a:hover {
-      text-decoration: underline;
     }
   </style>
 </head>
 <body>
 
-  <div class="search-container">
-    <h2>Find a Location</h2>
-    <input type="text" id="locationInput" placeholder="Enter an address or Eircode">
-    <button onclick="geocodeLocation()">Find Location</button>
-  </div>
-
   <div id="map"></div>
 
-  <footer>
-    <p>&copy; 2025 Viny. Made with 🎶 for music lovers.</p>
-    <div class="footer-links">
-      <a href="index.html">Home</a>
-      <a href="about.html">About</a>
-      <a href="contact.html">Contact</a>
-      <a href="map.html">Map</a>
-    </div>
-  </footer>
-
+  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <!-- PapaParse for CSV parsing -->
   <script src="https://unpkg.com/papaparse@5.3.2/papaparse.min.js"></script>
-
   <script>
-    const map = L.map('map').setView([53.3498, -6.2603], 10); // Dublin
-    const apiKey = '1bce004158a94773afe52570c225384a';
+    // 1) Initialize the map centered on Dublin
+    const map = L.map('map').setView([53.3498, -6.2603], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    // Custom marker icons
+    // 2) Define custom marker icons pointing to your own images
     const openIcon = L.icon({
-      iconUrl: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
-      iconSize: [32, 32],
+      iconUrl: 'images/open-session.png',   // your custom fiddle icon
+      iconSize: [32, 32],                    // adjust if your PNG is a different size
       iconAnchor: [16, 32],
       popupAnchor: [0, -32]
     });
 
     const closedIcon = L.icon({
-      iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-      iconSize: [32, 32],
+      iconUrl: 'images/closed-session.png', // your mic icon 
+      iconSize: [16, 36],
       iconAnchor: [16, 32],
       popupAnchor: [0, -32]
     });
 
     const gigIcon = L.icon({
-      iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-      iconSize: [32, 32],
+      iconUrl: 'images/gig.png',            // your drums gig icon
+      iconSize: [48, 32],
       iconAnchor: [16, 32],
       popupAnchor: [0, -32]
     });
 
-    function geocodeLocation() {
-      const query = document.getElementById('locationInput').value;
-      if (!query) return alert("Please enter a location");
-
-      fetch(`https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(query)}&key=${apiKey}`)
-        .then(response => response.json())
-        .then(data => {
-          if (!data.results.length) return alert("Location not found");
-          const { lat, lng } = data.results[0].geometry;
-          L.marker([lat, lng]).addTo(map).bindPopup(`Location: ${query}`).openPopup();
-          map.setView([lat, lng], 14);
-        })
-        .catch(err => {
-          alert("Error finding location");
-          console.error(err);
-        });
-    }
-
-    // Load markers from Google Sheets CSV
+    // 3) Your Sheet.best endpoint
     const sheetURL = 'https://api.sheetbest.com/sheets/1c3ecc0a-2eb8-4b82-b1e4-b5cdb51f4bc7';
+    // 4) Your OpenCage API key
+    const apiKey = '1bce004158a94773afe52570c225384a';
 
+    // 5) Fetch the JSON from Sheet.best and place markers via OpenCage
     fetch(sheetURL)
-      .then(response => response.text())
-      .then(csv => {
-        Papa.parse(csv, {
-          header: true,
-          complete: function(results) {
-            results.data.forEach(row => {
-              const eircode = row.Eircode?.trim();
-              const type = row.Type?.toLowerCase() || '';
-              const name = row.Name || 'Untitled';
-              const date = row.Date || '';
+      .then(response => {
+        if (!response.ok) throw new Error(`Sheet fetch error: ${response.status}`);
+        return response.json();
+      })
+      .then(data => {
+        console.log("Sheet data:", data);
 
-              if (!eircode) return;
+        data.forEach((row, i) => {
+          console.log(`Row ${i}:`, row);
 
-              fetch(`https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(eircode)}&key=${apiKey}`)
-                .then(res => res.json())
-                .then(data => {
-                  if (!data.results.length) return;
-
-                  const { lat, lng } = data.results[0].geometry;
-
-                  let icon;
-                  if (type.includes("open")) {
-                    icon = openIcon;
-                  } else if (type.includes("closed")) {
-                    icon = closedIcon;
-                  } else {
-                    icon = gigIcon;
-                  }
-
-                  L.marker([lat, lng], { icon })
-                    .addTo(map)
-                    .bindPopup(`<strong>${name}</strong><br>${type}<br>${date}`);
-                })
-                .catch(err => console.error('Geocoding error:', err));
-            });
+          const name    = row.Name || 'Unnamed';
+          const type    = row.Type || '';
+          const date    = row.Date || '';
+          const eircode = (row.Eircode || '').trim();
+          if (!eircode) {
+            console.warn(`Skipping row ${i} (no Eircode)`);
+            return;
           }
+
+          // Real geocoding for each Eircode
+          fetch(`https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(eircode)}&key=${apiKey}`)
+            .then(res => res.json())
+            .then(geoData => {
+              if (!geoData.results || !geoData.results.length) {
+                console.warn(`No coords for Eircode "${eircode}"`);
+                return;
+              }
+              const { lat, lng } = geoData.results[0].geometry;
+
+              let chosenIcon;
+              const typeLower = type.toLowerCase();
+              if (typeLower.includes("open")) {
+                chosenIcon = openIcon;
+              } else if (typeLower.includes("closed")) {
+                chosenIcon = closedIcon;
+              } else {
+                chosenIcon = gigIcon;
+              }
+
+              L.marker([lat, lng], { icon: chosenIcon })
+               .addTo(map)
+               .bindPopup(`<strong>${name}</strong><br>Type: ${type}<br>Date: ${date}`);
+            })
+            .catch(err => console.error('Geocode error:', err));
         });
       })
-      .catch(err => console.error('CSV load error:', err));
+      .catch(err => console.error('Fetch or parse error:', err));
   </script>
 </body>
 </html>
+
