@@ -2,10 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Viny Map – Custom Icons</title>
+  <title>Viny Map – Enhanced Visibility</title>
   <link rel="stylesheet" href="style.css" />
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <!-- MarkerCluster CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"
+  />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"
+  />
   <style>
+    /* Make map fill viewport */
     body, html {
       margin: 0;
       padding: 0;
@@ -14,6 +25,16 @@
     #map {
       height: 100vh;
       width: 100%;
+    }
+    /* Dim/boost contrast on tile layer */
+    .leaflet-tile {
+      filter: brightness(0.9) contrast(1.1);
+    }
+    /* Style for our <img> markers, adding a drop-shadow */
+    .marker-icon {
+      width: 32px;
+      height: 32px;
+      filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.6));
     }
   </style>
 </head>
@@ -25,90 +46,131 @@
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <!-- PapaParse for CSV parsing -->
   <script src="https://unpkg.com/papaparse@5.3.2/papaparse.min.js"></script>
+  <!-- MarkerCluster JS -->
+  <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+
   <script>
-    // 1) Initialize the map centered on Dublin
-    const map = L.map('map').setView([53.3498, -6.2603], 13);
+    // 1) Initialize map centered on Portlaoise
+    const map = L.map('map').setView([53.033, -7.299], 13); 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // 2) Define custom marker icons pointing to your own images
-    const openIcon = L.icon({
-      iconUrl: 'images/open-session.png',   // your custom fiddle icon
-      iconSize: [32, 32],                    // adjust if your PNG is a different size
-      iconAnchor: [16, 32],
-      popupAnchor: [0, -32]
-    });
+    // 2) Helper: create a DivIcon that wraps your PNG <img> and applies CSS drop-shadow
+    function createDivIcon(imagePath) {
+      return L.divIcon({
+        html: `<img src="${imagePath}" class="marker-icon"/>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+        popupAnchor: [0, -32],
+        className: '' // remove default .leaflet-div-icon styling
+      });
+    }
 
-    const closedIcon = L.icon({
-      iconUrl: 'images/closed-session.png', // your mic icon 
-      iconSize: [16, 36],
-      iconAnchor: [16, 32],
-      popupAnchor: [0, -32]
-    });
+    // 3) Create three DivIcons for each type
+    const openIcon = createDivIcon('images/open-session.png');
+    const closedIcon = createDivIcon('images/closed-session.png');
+    const gigIcon = createDivIcon('images/gig.png');
 
-    const gigIcon = L.icon({
-      iconUrl: 'images/gig.png',            // your drums gig icon
-      iconSize: [48, 32],
-      iconAnchor: [16, 32],
-      popupAnchor: [0, -32]
-    });
+    // 4) Prepare MarkerClusterGroup
+    const markers = L.markerClusterGroup();
 
-    // 3) Your Sheet.best endpoint
+    // 5) Sheet.best endpoint and OpenCage API key
     const sheetURL = 'https://api.sheetbest.com/sheets/1c3ecc0a-2eb8-4b82-b1e4-b5cdb51f4bc7';
-    // 4) Your OpenCage API key
     const apiKey = '1bce004158a94773afe52570c225384a';
 
-    // 5) Fetch the JSON from Sheet.best and place markers via OpenCage
+    // 6) Date range: today → 7 days from now
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    // 7) Helper: parse Sheet date (ISO "YYYY-MM-DD" or US "MM/DD/YYYY")
+    function parseSheetDate(dateStr) {
+      dateStr = dateStr.trim();
+      let parts, year, month, day;
+      if (dateStr.includes('-')) {
+        // ISO
+        [year, month, day] = dateStr.split('-');
+      } else if (dateStr.includes('/')) {
+        // US
+        [month, day, year] = dateStr.split('/');
+      } else {
+        return new Date('invalid');
+      }
+      month = month.padStart(2, '0');
+      day   = day.padStart(2, '0');
+      return new Date(`${year}-${month}-${day}T00:00:00`);
+    }
+
+    // 8) Fetch sheet JSON, filter, geocode, add to cluster
     fetch(sheetURL)
       .then(response => {
         if (!response.ok) throw new Error(`Sheet fetch error: ${response.status}`);
         return response.json();
       })
       .then(data => {
-        console.log("Sheet data:", data);
-
         data.forEach((row, i) => {
-          console.log(`Row ${i}:`, row);
-
           const name    = row.Name || 'Unnamed';
-          const type    = row.Type || '';
-          const date    = row.Date || '';
+          const type    = (row.Type || '').trim();
+          const dateRaw = (row.Date || '').trim();
           const eircode = (row.Eircode || '').trim();
-          if (!eircode) {
-            console.warn(`Skipping row ${i} (no Eircode)`);
+
+          if (!dateRaw || !eircode) {
+            console.warn(`Skipping row ${i} (missing Date or Eircode)`);
             return;
           }
 
-          // Real geocoding for each Eircode
+          const eventDate = parseSheetDate(dateRaw);
+          if (isNaN(eventDate)) {
+            console.warn(`Invalid date in row ${i}: "${dateRaw}"`);
+            return;
+          }
+
+          if (eventDate < now || eventDate > sevenDaysLater) {
+            console.log(`Skipping "${name}"—outside 7 days: ${dateRaw}`);
+            return;
+          }
+
+          // Geocode the Eircode
           fetch(`https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(eircode)}&key=${apiKey}`)
             .then(res => res.json())
             .then(geoData => {
               if (!geoData.results || !geoData.results.length) {
-                console.warn(`No coords for Eircode "${eircode}"`);
+                console.warn(`No coords for "${eircode}" (row ${i})`);
                 return;
               }
               const { lat, lng } = geoData.results[0].geometry;
 
               let chosenIcon;
               const typeLower = type.toLowerCase();
-              if (typeLower.includes("open")) {
-                chosenIcon = openIcon;
-              } else if (typeLower.includes("closed")) {
-                chosenIcon = closedIcon;
-              } else {
-                chosenIcon = gigIcon;
-              }
+              if (typeLower.includes('open'))      chosenIcon = openIcon;
+              else if (typeLower.includes('closed')) chosenIcon = closedIcon;
+              else                                     chosenIcon = gigIcon;
 
-              L.marker([lat, lng], { icon: chosenIcon })
-               .addTo(map)
-               .bindPopup(`<strong>${name}</strong><br>Type: ${type}<br>Date: ${date}`);
+              const marker = L.marker([lat, lng], { icon: chosenIcon })
+                .bindPopup(`<strong>${name}</strong><br>Type: ${type}<br>Date: ${dateRaw}`);
+
+              markers.addLayer(marker);
             })
-            .catch(err => console.error('Geocode error:', err));
+            .catch(err => console.error(`Geocode error (row ${i}):`, err));
         });
+
+        // 9) Add all clustered markers to map
+        map.addLayer(markers);
       })
       .catch(err => console.error('Fetch or parse error:', err));
   </script>
+  <footer>
+  <div class="footer-inner">
+    <p>&copy; 2025 Viny. Made with 🎶 for music lovers.</p>
+    <div class="footer-links">
+      <a href="index.html">Home</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+      <a href="map.html">Map</a>
+    </div>
+  </div>
+</footer>
+
 </body>
 </html>
-
