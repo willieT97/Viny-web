@@ -2,24 +2,228 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Viny - Find Local Music</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>Viny Map – Enhanced Visibility</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+
+    #map {
+      height: calc(100vh - 60px);
+      width: 100%;
+    }
+
+    .leaflet-tile {
+      filter: brightness(0.9) contrast(1.1);
+    }
+
+    .marker-icon {
+      width: 32px;
+      height: 32px;
+      filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.6));
+    }
+
+    footer {
+      height: 60px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+      font-size: 14px;
+    }
+
+    .footer-links {
+      margin-top: 4px;
+    }
+
+    .footer-links a {
+      color: #fff;
+      margin: 0 10px;
+      text-decoration: none;
+    }
+
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
+
+    #filter-control {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 10px 14px;
+      border-radius: 8px;
+      color: white;
+      font-family: sans-serif;
+      font-size: 14px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #filter-control select {
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: none;
+    }
+  </style>
 </head>
 <body>
-  <header>
-  <img src="logo.png" alt="Viny Logo" class="logo" />
-  <p>Connecting music lovers to local gigs and sessions.</p>
-  <a href="#" class="btn">Get Started</a>
-</header>
+
+  <div id="filter-control">
+    <label for="time-filter">Time:</label>
+    <select id="time-filter">
+      <option value="1">Next Day</option>
+      <option value="7" selected>Next Week</option>
+      <option value="30">Next Month</option>
+      <option value="365">Next Year</option>
+    </select>
+
+    <label for="type-filter">Type:</label>
+    <select id="type-filter">
+      <option value="all" selected>All</option>
+      <option value="open">Open Session</option>
+      <option value="closed">Closed Session</option>
+      <option value="gig">Gig</option>
+    </select>
+  </div>
+
+  <div id="map"></div>
+
+  <!-- JS LIBRARIES -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/papaparse@5.3.2/papaparse.min.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+
+  <script>
+    const map = L.map('map').setView([53.0331, -7.2996], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    function createDivIcon(imagePath) {
+      return L.divIcon({
+        html: `<img src="${imagePath}" class="marker-icon"/>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+        popupAnchor: [0, -32],
+        className: ''
+      });
+    }
+
+    const openIcon = createDivIcon('images/open-session.png');
+    const closedIcon = createDivIcon('images/closed-session.png');
+    const gigIcon = createDivIcon('images/gig.png');
+
+    const markers = L.markerClusterGroup();
+    const sheetURL = 'https://api.sheetbest.com/sheets/1c3ecc0a-2eb8-4b82-b1e4-b5cdb51f4bc7';
+    const apiKey = '1bce004158a94773afe52570c225384a';
+
+    function parseSheetDate(dateStr) {
+      dateStr = dateStr.trim();
+      let parts, year, month, day;
+      if (dateStr.includes('-')) {
+        [year, month, day] = dateStr.split('-');
+      } else if (dateStr.includes('/')) {
+        [month, day, year] = dateStr.split('/');
+      } else {
+        return new Date('invalid');
+      }
+      return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00`);
+    }
+
+    function getFilterRangeDays() {
+      return parseInt(document.getElementById('time-filter').value, 10);
+    }
+
+    function getTypeFilter() {
+      return document.getElementById('type-filter').value.toLowerCase();
+    }
+
+    function loadMarkers() {
+      markers.clearLayers();
+
+      fetch(sheetURL)
+        .then(response => {
+          if (!response.ok) throw new Error(`Sheet fetch error: ${response.status}`);
+          return response.json();
+        })
+        .then(data => {
+          data.forEach((row, i) => {
+            const name    = row.Name || 'Unnamed';
+            const type    = (row.Type || '').trim();
+            const dateRaw = (row.Date || '').trim();
+            const eircode = (row.Eircode || '').trim();
+            const venue   = (row.Venue || '').trim();
+            const time    = (row.Time || '').trim();
+
+            if (!dateRaw || !eircode) return;
+
+            const filterDays = getFilterRangeDays();
+            const typeFilter = getTypeFilter();
+
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            const futureDate = new Date(now.getTime() + filterDays * 24 * 60 * 60 * 1000);
+
+            const eventDate = parseSheetDate(dateRaw);
+            if (isNaN(eventDate) || eventDate < now || eventDate > futureDate) return;
+
+            const typeLower = type.toLowerCase();
+            if (typeFilter !== 'all' && !typeLower.includes(typeFilter)) return;
+
+            fetch(`https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(eircode)}&key=${apiKey}`)
+              .then(res => res.json())
+              .then(geoData => {
+                if (!geoData.results.length) return;
+                const { lat, lng } = geoData.results[0].geometry;
+
+                let chosenIcon = gigIcon;
+                if (typeLower.includes('open'))      chosenIcon = openIcon;
+                else if (typeLower.includes('closed')) chosenIcon = closedIcon;
+
+                const marker = L.marker([lat, lng], { icon: chosenIcon })
+                  .bindPopup(`
+                    <strong>${name}</strong><br>
+                    Type: ${type}<br>
+                    Date: ${dateRaw}<br>
+                    Time: ${time}<br>
+                    Venue: <em>${venue || 'Unknown venue'}</em>
+                  `);
+
+                markers.addLayer(marker);
+              })
+              .catch(err => console.error(`Geocode error (row ${i}):`, err));
+          });
+
+          map.addLayer(markers);
+        })
+        .catch(err => console.error('Fetch or parse error:', err));
+    }
+
+    document.getElementById('time-filter').addEventListener('change', loadMarkers);
+    document.getElementById('type-filter').addEventListener('change', loadMarkers);
+
+    loadMarkers();
+  </script>
+
+  <footer>
+    <p>&copy; 2025 Viny. Connecting music lovers to music communities.</p>
+    <div class="footer-links">
+      <a href="index.html">Map</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+    </div>
+  </footer>
 </body>
 </html>
-<footer>
-  <p>&copy; 2025 Viny. Made with 🎶 for music lovers.</p>
-  <div class="footer-links">
-    <a href="index.html">Home</a>
-        <a href="about.html">About</a>
-        <a href="contact.html">Contact</a>
-        <a href="map.html">Map</a>
-  </div>
-</footer>
