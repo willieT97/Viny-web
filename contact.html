@@ -8,34 +8,40 @@
 </head>
 <body>
   <header>
-    <h1>🎶 Viny</h1>
+      <div class="about-header">
+      <h1>Contact</h1>
+      <img src="logo.png" alt="Viny Logo" class="logo">
+    </div>
     <p>We'd love to hear from you.</p>
   </header>
 
   <section class="contact-section">
     <h2>Contact Us</h2>
-    <form class="contact-form">
-      <label for="name">Name</label>
-      <input type="text" id="name" name="name" required />
+    <p>You can leave your name and email if you'd like a reply — or send an anonymous message.</p>
+    <form class="contact-form" action="https://formspree.io/f/myzjzvag" method="POST">
+      <label for="name">Name (optional)</label>
+      <input type="text" id="name" name="name" />
 
-      <label for="email">Email</label>
-      <input type="email" id="email" name="email" required />
+      <label for="email">Email (optional)</label>
+      <input type="email" id="email" name="email" />
 
       <label for="message">Message</label>
       <textarea id="message" name="message" rows="5" required></textarea>
+
+      <!-- Honeypot anti-spam field -->
+      <input type="text" name="_gotcha" style="display:none" />
 
       <button type="submit">Send Message</button>
     </form>
   </section>
 
-<footer>
-    <p>&copy; 2025 Viny. Made with 🎶 for music lovers.</p>
+  <footer>
+    <p>&copy; 2025 Viny. Connecting music lovers to music communities.</p>
     <div class="footer-links">
-        <a href="index.html">Home</a>
-        <a href="about.html">About</a>
-        <a href="contact.html">Contact</a>
-        <a href="map.html">Map</a>
+      <a href="index.html">Map</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
     </div>
-</footer>
+  </footer>
 </body>
 </html>
