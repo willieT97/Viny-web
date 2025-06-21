@@ -258,3 +258,20 @@ footer {
   border-radius: 4px;
   border: none;
 }
+
+@media (max-width: 640px) {
+  #filter-control {
+    font-size: 16px; /* larger base text */
+    padding: 14px 18px; /* more space inside */
+    gap: 12px;
+  }
+
+  #filter-control select {
+    font-size: 16px;     /* bigger dropdown text */
+    padding: 6px 10px;   /* more touch area */
+  }
+
+  #filter-control label {
+    font-size: 16px;
+  }
+}
