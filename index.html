@@ -199,7 +199,10 @@
                     Type: ${type}<br>
                     Date: ${dateRaw}<br>
                     Time: ${time}<br>
-                    Venue: <em>${venue || 'Unknown venue'}</em>
+                    Venue: <em>${venue || 'Unknown venue'}</em><br>
+                    <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}" target="_blank">
+                      Get Directions
+                    </a>
                   `);
 
                 markers.addLayer(marker);
