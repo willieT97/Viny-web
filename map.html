@@ -2,175 +2,336 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Viny Map – Enhanced Visibility</title>
-  <link rel="stylesheet" href="style.css" />
-  <!-- Leaflet CSS -->
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-92LMHGGT2L"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+  
+    gtag('config', 'G-92LMHGGT2L');
+  </script>
+    
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <!-- MarkerCluster CSS -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"
-  />
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"
-  />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
   <style>
-    /* Make map fill viewport */
-    body, html {
+    html, body {
       margin: 0;
       padding: 0;
       height: 100%;
     }
+
     #map {
-      height: 100vh;
+      height: calc(100vh - 60px);
       width: 100%;
     }
-    /* Dim/boost contrast on tile layer */
+
     .leaflet-tile {
       filter: brightness(0.9) contrast(1.1);
     }
-    /* Style for our <img> markers, adding a drop-shadow */
+
     .marker-icon {
       width: 32px;
       height: 32px;
       filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.6));
     }
+
+    footer {
+      height: 60px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+      font-size: 14px;
+    }
+
+    .footer-links {
+      margin-top: 4px;
+    }
+
+    .footer-links a {
+      color: #fff;
+      margin: 0 10px;
+      text-decoration: none;
+    }
+
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
+
+    #filter-control {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 10px 14px;
+      border-radius: 8px;
+      color: white;
+      font-family: sans-serif;
+      font-size: 14px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #filter-control select {
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: none;
+    }
   </style>
 </head>
 <body>
 
+  <div id="filter-control">
+    <label for="time-filter">Time:</label>
+    <select id="time-filter">
+      <option value="1">Next Day</option>
+      <option value="7" selected>Next Week</option>
+      <option value="30">Next Month</option>
+      <option value="365">Next Year</option>
+    </select>
+
+    <label for="type-filter">Type:</label>
+    <select id="type-filter">
+      <option value="all" selected>All</option>
+      <option value="open">Open Session</option>
+      <option value="closed">Closed Session</option>
+      <option value="gig">Gig</option>
+    </select>
+  </div>
+
   <div id="map"></div>
 
-  <!-- Leaflet JS -->
+  <!-- JS LIBRARIES -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <!-- PapaParse for CSV parsing -->
   <script src="https://unpkg.com/papaparse@5.3.2/papaparse.min.js"></script>
-  <!-- MarkerCluster JS -->
   <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 
   <script>
-    // 1) Initialize map centered on Portlaoise
-    const map = L.map('map').setView([53.033, -7.299], 13); 
+    const map = L.map('map').setView([53.0331, -7.2996], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    // 2) Helper: create a DivIcon that wraps your PNG <img> and applies CSS drop-shadow
     function createDivIcon(imagePath) {
       return L.divIcon({
         html: `<img src="${imagePath}" class="marker-icon"/>`,
         iconSize: [32, 32],
         iconAnchor: [16, 32],
         popupAnchor: [0, -32],
-        className: '' // remove default .leaflet-div-icon styling
+        className: ''
       });
     }
 
-    // 3) Create three DivIcons for each type
     const openIcon = createDivIcon('images/open-session.png');
     const closedIcon = createDivIcon('images/closed-session.png');
     const gigIcon = createDivIcon('images/gig.png');
+    const venueIcon = createDivIcon('images/venue.png'); // your stock pin for venues with multiple events
 
-    // 4) Prepare MarkerClusterGroup
     const markers = L.markerClusterGroup();
+    let heatLayer = null;
 
-    // 5) Sheet.best endpoint and OpenCage API key
     const sheetURL = 'https://api.sheetbest.com/sheets/1c3ecc0a-2eb8-4b82-b1e4-b5cdb51f4bc7';
     const apiKey = '1bce004158a94773afe52570c225384a';
 
-    // 6) Date range: today → 7 days from now
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-    // 7) Helper: parse Sheet date (ISO "YYYY-MM-DD" or US "MM/DD/YYYY")
     function parseSheetDate(dateStr) {
       dateStr = dateStr.trim();
       let parts, year, month, day;
       if (dateStr.includes('-')) {
-        // ISO
         [year, month, day] = dateStr.split('-');
       } else if (dateStr.includes('/')) {
-        // US
         [month, day, year] = dateStr.split('/');
       } else {
         return new Date('invalid');
       }
-      month = month.padStart(2, '0');
-      day   = day.padStart(2, '0');
-      return new Date(`${year}-${month}-${day}T00:00:00`);
+      return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00`);
     }
 
-    // 8) Fetch sheet JSON, filter, geocode, add to cluster
-    fetch(sheetURL)
-      .then(response => {
-        if (!response.ok) throw new Error(`Sheet fetch error: ${response.status}`);
-        return response.json();
-      })
-      .then(data => {
-        data.forEach((row, i) => {
-          const name    = row.Name || 'Unnamed';
-          const type    = (row.Type || '').trim();
-          const dateRaw = (row.Date || '').trim();
-          const eircode = (row.Eircode || '').trim();
+    function getFilterRangeDays() {
+      return parseInt(document.getElementById('time-filter').value, 10);
+    }
 
-          if (!dateRaw || !eircode) {
-            console.warn(`Skipping row ${i} (missing Date or Eircode)`);
-            return;
-          }
+    function getTypeFilter() {
+      return document.getElementById('type-filter').value.toLowerCase();
+    }
 
-          const eventDate = parseSheetDate(dateRaw);
-          if (isNaN(eventDate)) {
-            console.warn(`Invalid date in row ${i}: "${dateRaw}"`);
-            return;
-          }
+    // Store event coords for heatmap points
+    let heatPoints = [];
 
-          if (eventDate < now || eventDate > sevenDaysLater) {
-            console.log(`Skipping "${name}"—outside 7 days: ${dateRaw}`);
-            return;
-          }
+    function loadMarkers() {
+      markers.clearLayers();
+      heatPoints = [];
 
-          // Geocode the Eircode
-          fetch(`https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(eircode)}&key=${apiKey}`)
-            .then(res => res.json())
-            .then(geoData => {
-              if (!geoData.results || !geoData.results.length) {
-                console.warn(`No coords for "${eircode}" (row ${i})`);
-                return;
+      fetch(sheetURL)
+        .then(response => {
+          if (!response.ok) throw new Error(`Sheet fetch error: ${response.status}`);
+          return response.json();
+        })
+        .then(async data => {
+          // We'll group events by venue latlng string "lat,lng"
+          const venueEventsMap = new Map();
+
+          const now = new Date();
+          now.setHours(0, 0, 0, 0);
+          const filterDays = getFilterRangeDays();
+          const futureDate = new Date(now.getTime() + filterDays * 24 * 60 * 60 * 1000);
+          const typeFilter = getTypeFilter();
+
+          // Helper to geocode once per unique eircode
+          const eircodeCache = new Map();
+
+          async function geocode(eircode) {
+            if (eircodeCache.has(eircode)) return eircodeCache.get(eircode);
+            try {
+              const res = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(eircode)}&key=${apiKey}`);
+              const geoData = await res.json();
+              if (geoData.results.length) {
+                const coords = geoData.results[0].geometry;
+                eircodeCache.set(eircode, coords);
+                return coords;
               }
-              const { lat, lng } = geoData.results[0].geometry;
+            } catch(e) {
+              console.error(`Geocode error for ${eircode}:`, e);
+            }
+            eircodeCache.set(eircode, null);
+            return null;
+          }
 
-              let chosenIcon;
-              const typeLower = type.toLowerCase();
+          // Process events one by one
+          for (const [i, row] of data.entries()) {
+            const name    = row.Name || 'Unnamed';
+            const type    = (row.Type || '').trim();
+            const dateRaw = (row.Date || '').trim();
+            const eircode = (row.Eircode || '').trim();
+            const venue   = (row.Venue || '').trim();
+            const time    = (row.Time || '').trim();
+
+            if (!dateRaw || !eircode) continue;
+
+            const eventDate = parseSheetDate(dateRaw);
+            if (isNaN(eventDate) || eventDate < now || eventDate > futureDate) continue;
+
+            const typeLower = type.toLowerCase();
+            if (typeFilter !== 'all' && !typeLower.includes(typeFilter)) continue;
+
+            const coords = await geocode(eircode);
+            if (!coords) continue;
+
+            const latlngKey = `${coords.lat.toFixed(6)},${coords.lng.toFixed(6)}`;
+
+            if (!venueEventsMap.has(latlngKey)) venueEventsMap.set(latlngKey, []);
+            venueEventsMap.get(latlngKey).push({
+              name, type, dateRaw, time, venue, lat: coords.lat, lng: coords.lng
+            });
+          }
+
+          // Now create markers and heat points
+          venueEventsMap.forEach((events, latlngKey) => {
+            const lat = events[0].lat;
+            const lng = events[0].lng;
+
+            // Add to heatPoints (with optional intensity)
+            heatPoints.push([lat, lng, events.length]);
+
+            if (events.length === 1) {
+              // Single event - show event marker with correct icon
+              const ev = events[0];
+              let chosenIcon = gigIcon;
+              const typeLower = ev.type.toLowerCase();
               if (typeLower.includes('open'))      chosenIcon = openIcon;
               else if (typeLower.includes('closed')) chosenIcon = closedIcon;
-              else                                     chosenIcon = gigIcon;
 
-              const marker = L.marker([lat, lng], { icon: chosenIcon })
-                .bindPopup(`<strong>${name}</strong><br>Type: ${type}<br>Date: ${dateRaw}`);
+              const popupHtml = `
+                <strong>${ev.name}</strong><br>
+                Type: ${ev.type}<br>
+                Date: ${ev.dateRaw}<br>
+                Time: ${ev.time}<br>
+                Venue: <em>${ev.venue || 'Unknown venue'}</em><br>
+                <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}" target="_blank">Get Directions</a>
+              `;
 
+              const marker = L.marker([lat, lng], { icon: chosenIcon }).bindPopup(popupHtml);
               markers.addLayer(marker);
-            })
-            .catch(err => console.error(`Geocode error (row ${i}):`, err));
-        });
+            } else {
+              // Multiple events at one venue - use venueIcon with list popup
+              const popupHtml = `<div style="font-size:18px; font-weight:bold; margin-bottom:8px;">${events[0].venue || 'Multiple Events'}</div><ul style="padding-left:18px; margin:0;">` +
+                events.map(ev => 
+                  `<li><strong>${ev.name}</strong><br>
+                    Type: (${ev.type})<br>
+                    Date: ${ev.dateRaw}<br>
+                    Time:${ev.time ? 'at ' + ev.time : ''}</li>`
+                ).join('') +
+                `</ul><a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}" target="_blank">Get Directions</a>`;
 
-        // 9) Add all clustered markers to map
-        map.addLayer(markers);
-      })
-      .catch(err => console.error('Fetch or parse error:', err));
+              const marker = L.marker([lat, lng], { icon: venueIcon }).bindPopup(popupHtml);
+              markers.addLayer(marker);
+            }
+          });
+
+          // Add markers layer to map if zoom >= 11
+          if (map.getZoom() >= 11) {
+            if (!map.hasLayer(markers)) map.addLayer(markers);
+          }
+
+          // Remove existing heat layer and create a new one
+          if (heatLayer) map.removeLayer(heatLayer);
+          heatLayer = L.heatLayer(heatPoints, {
+            radius: 25,
+            blur: 15,
+            maxZoom: 17,
+            max: 10 // max intensity for scaling color
+          });
+
+          // Add heat layer if zoom < 11
+          if (map.getZoom() < 11) {
+            if (!map.hasLayer(heatLayer)) map.addLayer(heatLayer);
+          }
+        })
+        .catch(err => console.error('Fetch or parse error:', err));
+    }
+
+    // Switch between markers and heatmap based on zoom level
+    function updateLayerVisibility() {
+      if (map.getZoom() < 11) {
+        if (map.hasLayer(markers)) map.removeLayer(markers);
+        if (heatLayer && !map.hasLayer(heatLayer)) map.addLayer(heatLayer);
+      } else {
+        if (heatLayer && map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
+        if (!map.hasLayer(markers)) map.addLayer(markers);
+      }
+    }
+
+    map.on('zoomend', updateLayerVisibility);
+
+    document.getElementById('time-filter').addEventListener('change', () => {
+      loadMarkers();
+    });
+    document.getElementById('type-filter').addEventListener('change', () => {
+      loadMarkers();
+    });
+
+    loadMarkers();
+
   </script>
+
   <footer>
-  <div class="footer-inner">
-    <p>&copy; 2025 Viny. Made with 🎶 for music lovers.</p>
+    <p>&copy; 2025 Viny. Connecting music lovers to music communities.</p>
     <div class="footer-links">
-      <a href="index.html">Home</a>
+      <a href="index.html">Map</a>
       <a href="about.html">About</a>
       <a href="contact.html">Contact</a>
-      <a href="map.html">Map</a>
     </div>
-  </div>
-</footer>
-
+  </footer>
 </body>
 </html>
