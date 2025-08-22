@@ -33,13 +33,21 @@
   </style>
 </head>
 <body>
-    <img src="/background.png" style="position:fixed; inset:0; width:100%; height:100%; object-fit:cover; z-index:-1;">
-  <div class="content">
+    <img src="/background.png" 
+     style="
+       position: fixed;
+       top: 0;
+       left: 50%;
+       height: 100%;
+       transform: translateX(-50%);
+       z-index: -1;
+     ">
+
     <p class="tagline">Connecting music lovers to music communities</p>
     <div class="logo"><img src="logo.png" alt="Viny Logo"></div>
     <div class="cta">
       <span class="cta-icon">📍</span>
-      Gigs and Sessions Pinned on Our Interactive Map
+      <a href="index.html" style="color: #ff5ff9; ">Gigs and Sessions Pinned on Our Interactive Map</a>
     </div>
     <p class="secondary">Find out what’s happening in <span class="highlight">Laois</span> this weekend</p>
   </div>
