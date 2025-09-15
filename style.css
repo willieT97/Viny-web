@@ -187,15 +187,14 @@ footer {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
 }
 
 .footer-links {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 1rem;
-  padding-bottom: 0.75rem; /* add extra space from the bottom */
+  gap: 1.5rem;
+  padding-bottom: 0.4rem; /* add extra space from the bottom */
 }
 
 .footer-links a {
