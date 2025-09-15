@@ -118,6 +118,7 @@
     <button id="close-news">×</button>
     <h2>Latest News</h2>
     <div id="news-feed">
+    <div class="news-container"></div>
       <!-- News items will go here -->
     </div>
   </div>
@@ -189,6 +190,48 @@
 
 #open-news.shifted {
   left: 320px; /* matches sidebar width */
+}
+
+.news-container {
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: 100vh; /* so it scrolls if too long */
+}
+
+.news-item {
+  background: #1e1e1e; /* dark card look */
+  color: #fff;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.news-item:nth-child(odd) {
+  background: #2a2a2a; /* alternating backgrounds */
+}
+
+.news-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.news-item h3 {
+  font-family: 'Bowlby One SC', sans-serif;
+  font-size: 1.2rem;
+  margin: 0 0 0.5rem;
+  color: #ff2727; /* highlight your main color */
+}
+
+.news-item small {
+  color: #bbb;
+  font-size: 0.85rem;
+}
+
+.news-item p {
+  margin: 0.25rem 0;
+  line-height: 1.4;
 }
 
   </style>
@@ -413,30 +456,54 @@ closeNewsBtn.addEventListener('click', () => {
 });
 
 
-// Fetch News from the Same Sheet
+// Fetch News Feed (using same logic as map)
 fetch(sheetURL)
   .then(response => response.json())
   .then(data => {
     const container = document.querySelector('.news-container');
-    const newsItems = data.filter(item =>
-      (item.Type || '').toLowerCase().includes('news')
-    );
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const filterDays = getFilterRangeDays(); // reuse the map’s filter dropdown
+    const futureDate = new Date(now.getTime() + filterDays * 24 * 60 * 60 * 1000);
+    const typeFilter = getTypeFilter(); // reuse type filter
+
+    const validEvents = [];
+
+    for (const row of data) {
+      const name    = row.Name || 'Unnamed';
+      const type    = (row.Type || '').trim();
+      const dateRaw = (row.Date || '').trim();
+      const venue   = (row.Venue || '').trim();
+      const time    = (row.Time || '').trim();
+
+      if (!dateRaw) continue;
+
+      const eventDate = parseSheetDate(dateRaw);
+      if (isNaN(eventDate) || eventDate < now || eventDate > futureDate) continue;
+
+      const typeLower = type.toLowerCase();
+      if (typeFilter !== 'all' && !typeLower.includes(typeFilter)) continue;
+
+      validEvents.push({ name, type, dateRaw, time, venue, eventDate });
+    }
 
     // Sort newest first
-    newsItems.sort((a, b) => new Date(b.Date) - new Date(a.Date));
+    validEvents.sort((a, b) => a.eventDate - b.eventDate);
 
-    newsItems.forEach(item => {
+    // Build feed
+    validEvents.forEach(ev => {
       const div = document.createElement('div');
       div.className = 'news-item';
       div.innerHTML = `
-        <h3>${item.Title || 'Untitled'}</h3>
-        <p><small>${item.Date || ''}</small></p>
-        <p>${item.Content || ''}</p>
+        <h3>${ev.name}</h3>
+        <p><small>${ev.dateRaw}${ev.time ? ' at ' + ev.time : ''}</small></p>
+        <p>${ev.venue}</p>
       `;
       container.appendChild(div);
     });
   })
-  .catch(err => console.error('News fetch error:', err));
+  .catch(err => console.error('Feed fetch error:', err));
 
   </script>
 
