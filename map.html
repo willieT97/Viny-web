@@ -54,17 +54,19 @@
 
     .footer-links {
       margin-top: 4px;
+      margin-bottom: 1rem;
     }
 
     .footer-links a {
       color: #fff;
-      margin: 0 10px;
+      margin: 10px 10px;
       text-decoration: none;
     }
 
     .footer-links a:hover {
       text-decoration: underline;
     }
+
 
     #filter-control {
       position: absolute;
@@ -110,6 +112,18 @@
     </select>
   </div>
 
+  <button id="open-news">News</button>
+
+  <div id="news-sidebar">
+    <button id="close-news">×</button>
+    <h2>Latest News</h2>
+    <div id="news-feed">
+      <!-- News items will go here -->
+    </div>
+  </div>
+
+
+
   <div id="map"></div>
 
   <!-- JS LIBRARIES -->
@@ -117,6 +131,67 @@
   <script src="https://unpkg.com/papaparse@5.3.2/papaparse.min.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
   <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+
+   <style> 
+     /* Sidebar */
+#news-sidebar {
+  position: fixed;
+  top: 0;
+  left: -400px; /* Hidden by default */
+  width: 300px;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  color: #fff;
+  transition: left 0.3s ease;
+  z-index: 1000;
+  padding: 20px;
+}
+
+#news-sidebar.open {
+  left: 0;
+}
+
+#news-sidebar h2 {
+  text-align: center;
+  margin-top: 8px; /* optional: adds space below the close button */
+}
+
+#close-news {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  color: #fff;
+  font-size: 36px;
+  border: none;
+  cursor: pointer;
+}
+
+/* News button */
+#open-news {
+  position: fixed;
+  top: 20px;
+  left: 3rem;
+  z-index: 1100;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: left 0.3s ease;
+}
+
+#open-news:hover {
+  background: #ff2727;
+}
+
+
+#open-news.shifted {
+  left: 320px; /* matches sidebar width */
+}
+
+  </style>
 
   <script>
     const map = L.map('map').setView([53.0331, -7.2996], 13);
@@ -323,12 +398,52 @@
 
     loadMarkers();
 
+ const openNewsBtn = document.getElementById('open-news');
+const closeNewsBtn = document.getElementById('close-news');
+const newsSidebar = document.getElementById('news-sidebar');
+
+openNewsBtn.addEventListener('click', () => {
+  newsSidebar.classList.add('open');
+  openNewsBtn.classList.add('shifted');
+});
+
+closeNewsBtn.addEventListener('click', () => {
+  newsSidebar.classList.remove('open');
+  openNewsBtn.classList.remove('shifted');
+});
+
+
+// Fetch News from the Same Sheet
+fetch(sheetURL)
+  .then(response => response.json())
+  .then(data => {
+    const container = document.querySelector('.news-container');
+    const newsItems = data.filter(item =>
+      (item.Type || '').toLowerCase().includes('news')
+    );
+
+    // Sort newest first
+    newsItems.sort((a, b) => new Date(b.Date) - new Date(a.Date));
+
+    newsItems.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'news-item';
+      div.innerHTML = `
+        <h3>${item.Title || 'Untitled'}</h3>
+        <p><small>${item.Date || ''}</small></p>
+        <p>${item.Content || ''}</p>
+      `;
+      container.appendChild(div);
+    });
+  })
+  .catch(err => console.error('News fetch error:', err));
+
   </script>
 
   <footer>
     <p>&copy; 2025 Viny. Connecting music lovers to music communities.</p>
     <div class="footer-links">
-      <a href="map.html">Map</a>
+      <a href="index.html">Map</a>
       <a href="about.html">About</a>
       <a href="contact.html">Contact</a>
     </div>
