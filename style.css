@@ -1,6 +1,6 @@
 body {
+  background: none !important;
   font-family: Arial, sans-serif;
-  background-color: #121212;
   color: #ffffff;
   margin: 0;
   padding: 0;
@@ -25,6 +25,25 @@ header {
   font-size: 48px;
   color: #ff4c4c; /* match your red tone */
   margin: 0;
+}
+
+/* Link styling + hover "pop" */
+.map-link {
+  color: #ff5ff9;
+  font-family: 'Bowlby One SC', sans-serif;
+  text-decoration: none;
+  display: inline-block;              /* lets transform animate nicely */
+  transition: transform .25s ease, 
+              text-shadow .25s ease, 
+              color .25s ease;
+  cursor: pointer;
+}
+
+.map-link:hover,
+.map-link:focus-visible {
+  text-decoration: underline;         /* shows it's a link */
+  text-shadow: 0 0 8px #ff5ff9;       /* subtle glow */
+  transform: scale(1.05);             /* pop */
 }
 
 
@@ -137,18 +156,32 @@ p {
 .btn:hover {
   background-color: #e03e48;
 }
-footer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background: rgba(0, 0, 0, 0.85);
-  color: #eee;
-  text-align: center;
-  padding: 0.5rem 1rem;
-  z-index: 1000;
-  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.4);
+ html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
+
+#map {
+  flex: 1; /* take up remaining space */
+  width: 100%;
+}
+
+footer {
+  height: 60px;
+  flex-shrink: 0; /* prevent footer from collapsing */
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: sans-serif;
+  font-size: 14px;
+}
+
 
 .footer-inner {
   display: flex;
@@ -162,6 +195,7 @@ footer {
   flex-wrap: wrap;
   justify-content: center;
   gap: 1rem;
+  padding-bottom: 0.75rem; /* add extra space from the bottom */
 }
 
 .footer-links a {
@@ -177,7 +211,7 @@ footer {
 
 /* Adjust map height to leave room for footer */
 #map {
-  height: calc(100vh - 50px);
+  flex: 1; /* map fills remaining space */
 }
 
 /* Container for the map page */
@@ -226,11 +260,6 @@ footer {
   background-color: #e03e48;
 }
 
-/* Map container styling */
-#map {
-  flex-grow: 1;
-  width: 100%;
-}
 
 /* Override footer positioning for map page */
 .map-container footer {
@@ -275,3 +304,30 @@ footer {
     font-size: 16px;
   }
 }
+
+/* === Force the poster background (place these LAST) === */
+html, body {
+  margin: 0;
+  height: 100%;
+  background: transparent !important; /* neutralize any earlier body/html background */
+}
+
+body {
+  position: relative; /* create a containing block for the bg layer */
+}
+
+/* Paint the background as a fixed layer behind everything */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;                  /* top:0 right:0 bottom:0 left:0 */
+  background-image: url("background.png?v=2"); /* cache-bust just in case */
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  z-index: -1;               /* sit behind all content */
+  pointer-events: none;
+}
+
+/* TEMP DIAGNOSTIC — do not leave this in permanently */
+* { background-image: none !important; background-color: transparent !important; }
