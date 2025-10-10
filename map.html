@@ -334,6 +334,13 @@
       return document.getElementById('type-filter').value.toLowerCase();
     }
 
+    function formatDateToDDMMYYYY(dateObj) {
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0'); // months are 0-based
+      const year = dateObj.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+
     // Store event coords for heatmap points
     let heatPoints = [];
 
@@ -414,14 +421,15 @@
             const icon = createVenueIcon(isActive, filteredEvents.length);
             // Build popup: list all events (not just filtered)
             let popupHtml = `<div style="font-size:18px; font-weight:bold; margin-bottom:8px;">${venue || 'Venue'}</div>`;
-            if (allEvents.length === 0) {
-              popupHtml += `<span>No events at this venue.</span>`;
+
+            if (filteredEvents.length === 0) {
+              popupHtml += `<span>No upcoming events in this time range.</span>`;
             } else {
               popupHtml += `<ul style="padding-left:18px; margin:0;">` +
-                allEvents.map(ev =>
+                filteredEvents.map(ev =>
                   `<li><strong>${ev.name}</strong><br>
                     Type: (${ev.type})<br>
-                    Date: ${ev.dateRaw}<br>
+                    Date: ${formatDateToDDMMYYYY(parseSheetDate(ev.dateRaw))}<br>
                     Time:${ev.time ? ' at ' + ev.time : ''}</li>`
                 ).join('') +
                 `</ul>`;
