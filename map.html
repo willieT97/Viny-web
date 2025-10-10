@@ -242,9 +242,39 @@
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    function createDivIcon(imagePath) {
+    // Helper to create a venue icon with optional count overlay
+    function createVenueIcon(isActive, count) {
+      // Use local image path
+      const imgSrc = isActive ? 'venue-active.png' : 'venue-inactive.png';
+      // If inactive, show plain icon
+      if (!isActive) {
+        return L.divIcon({
+          html: `<img src="${imgSrc}" class="marker-icon"/>`,
+          iconSize: [32, 32],
+          iconAnchor: [16, 32],
+          popupAnchor: [0, -32],
+          className: ''
+        });
+      }
+      // If active, add count overlay
+      // The text size should be about 30% of the PNG height (32px * 0.3 ≈ 10px)
+      const countText = `<span style="
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 10px;
+        font-weight: bold;
+        color: #fff;
+        text-shadow: 0 0 4px #000, 0 0 2px #000;
+        pointer-events: none;
+        z-index: 2;
+    ">${count}</span>`;
       return L.divIcon({
-        html: `<img src="${imagePath}" class="marker-icon"/>`,
+        html: `<div style="position: relative; width:32px; height:32px;">
+          <img src="${imgSrc}" class="marker-icon"/>
+          ${countText}
+        </div>`,
         iconSize: [32, 32],
         iconAnchor: [16, 32],
         popupAnchor: [0, -32],
@@ -252,12 +282,32 @@
       });
     }
 
-    const openIcon = createDivIcon('images/open-session.png');
-    const closedIcon = createDivIcon('images/closed-session.png');
-    const gigIcon = createDivIcon('images/gig.png');
-    const venueIcon = createDivIcon('images/venue.png'); // your stock pin for venues with multiple events
-
-    const markers = L.markerClusterGroup();
+    const markers = L.markerClusterGroup({
+      disableClusteringAtZoom: 14,
+      iconCreateFunction: function(cluster) {
+        const count = cluster.getChildCount();
+        return L.divIcon({
+          html: `
+            <div style="position: relative; width: 40px; height: 40px;">
+              <img src="town.png" style="width: 100%; height: 100%;" />
+              <span style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-size: 12px;
+                font-weight: bold;
+                color: white;
+                text-shadow: 0 0 3px #000;
+                pointer-events: none;
+              ">${count}</span>
+            </div>
+          `,
+          className: '', // remove default Leaflet class styling
+          iconSize: [40, 40]
+        });
+      }
+    });
     let heatLayer = null;
 
     const sheetURL = 'https://api.sheetbest.com/sheets/1c3ecc0a-2eb8-4b82-b1e4-b5cdb51f4bc7';
@@ -297,16 +347,14 @@
           return response.json();
         })
         .then(async data => {
-          // We'll group events by venue latlng string "lat,lng"
-          const venueEventsMap = new Map();
-
+          // Group all events by venue (using lat,lng or eircode as key)
+          const venueMap = new Map();
+          const venueCoordsMap = new Map();
           const now = new Date();
           now.setHours(0, 0, 0, 0);
           const filterDays = getFilterRangeDays();
           const futureDate = new Date(now.getTime() + filterDays * 24 * 60 * 60 * 1000);
           const typeFilter = getTypeFilter();
-
-          // Helper to geocode once per unique eircode
           const eircodeCache = new Map();
 
           async function geocode(eircode) {
@@ -326,8 +374,8 @@
             return null;
           }
 
-          // Process events one by one
-          for (const [i, row] of data.entries()) {
+          // First, collect all events, grouped by eircode (or latlng)
+          for (const row of data) {
             const name    = row.Name || 'Unnamed';
             const type    = (row.Type || '').trim();
             const dateRaw = (row.Date || '').trim();
@@ -336,66 +384,53 @@
             const time    = (row.Time || '').trim();
 
             if (!dateRaw || !eircode) continue;
-
-            const eventDate = parseSheetDate(dateRaw);
-            if (isNaN(eventDate) || eventDate < now || eventDate > futureDate) continue;
-
-            const typeLower = type.toLowerCase();
-            if (typeFilter !== 'all' && !typeLower.includes(typeFilter)) continue;
-
-            const coords = await geocode(eircode);
+            // Geocode and store all venues
+            let coords = await geocode(eircode);
             if (!coords) continue;
-
-            const latlngKey = `${coords.lat.toFixed(6)},${coords.lng.toFixed(6)}`;
-
-            if (!venueEventsMap.has(latlngKey)) venueEventsMap.set(latlngKey, []);
-            venueEventsMap.get(latlngKey).push({
+            const key = `${coords.lat.toFixed(6)},${coords.lng.toFixed(6)}`;
+            if (!venueMap.has(key)) venueMap.set(key, []);
+            venueMap.get(key).push({
               name, type, dateRaw, time, venue, lat: coords.lat, lng: coords.lng
             });
+            // Remember venue info for this key
+            if (!venueCoordsMap.has(key)) venueCoordsMap.set(key, { lat: coords.lat, lng: coords.lng, venue });
           }
 
-          // Now create markers and heat points
-          venueEventsMap.forEach((events, latlngKey) => {
-            const lat = events[0].lat;
-            const lng = events[0].lng;
-
-            // Add to heatPoints (with optional intensity)
-            heatPoints.push([lat, lng, events.length]);
-
-            if (events.length === 1) {
-              // Single event - show event marker with correct icon
-              const ev = events[0];
-              let chosenIcon = gigIcon;
-              const typeLower = ev.type.toLowerCase();
-              if (typeLower.includes('open'))      chosenIcon = openIcon;
-              else if (typeLower.includes('closed')) chosenIcon = closedIcon;
-
-              const popupHtml = `
-                <strong>${ev.name}</strong><br>
-                Type: ${ev.type}<br>
-                Date: ${ev.dateRaw}<br>
-                Time: ${ev.time}<br>
-                Venue: <em>${ev.venue || 'Unknown venue'}</em><br>
-                <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}" target="_blank">Get Directions</a>
-              `;
-
-              const marker = L.marker([lat, lng], { icon: chosenIcon }).bindPopup(popupHtml);
-              markers.addLayer(marker);
+          // Now, for each venue, determine which events are in the filtered period
+          for (const [key, allEvents] of venueMap.entries()) {
+            const { lat, lng, venue } = venueCoordsMap.get(key);
+            // Filter events for this venue by date/type
+            const filteredEvents = allEvents.filter(ev => {
+              const eventDate = parseSheetDate(ev.dateRaw);
+              if (isNaN(eventDate) || eventDate < now || eventDate > futureDate) return false;
+              const typeLower = (ev.type || '').toLowerCase();
+              if (typeFilter !== 'all' && !typeLower.includes(typeFilter)) return false;
+              return true;
+            });
+            // Add to heatPoints with intensity = number of filtered events
+            heatPoints.push([lat, lng, filteredEvents.length]);
+            // Determine icon: active if at least one event in period, else inactive
+            const isActive = filteredEvents.length > 0;
+            const icon = createVenueIcon(isActive, filteredEvents.length);
+            // Build popup: list all events (not just filtered)
+            let popupHtml = `<div style="font-size:18px; font-weight:bold; margin-bottom:8px;">${venue || 'Venue'}</div>`;
+            if (allEvents.length === 0) {
+              popupHtml += `<span>No events at this venue.</span>`;
             } else {
-              // Multiple events at one venue - use venueIcon with list popup
-              const popupHtml = `<div style="font-size:18px; font-weight:bold; margin-bottom:8px;">${events[0].venue || 'Multiple Events'}</div><ul style="padding-left:18px; margin:0;">` +
-                events.map(ev => 
+              popupHtml += `<ul style="padding-left:18px; margin:0;">` +
+                allEvents.map(ev =>
                   `<li><strong>${ev.name}</strong><br>
                     Type: (${ev.type})<br>
                     Date: ${ev.dateRaw}<br>
-                    Time:${ev.time ? 'at ' + ev.time : ''}</li>`
+                    Time:${ev.time ? ' at ' + ev.time : ''}</li>`
                 ).join('') +
-                `</ul><a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}" target="_blank">Get Directions</a>`;
-
-              const marker = L.marker([lat, lng], { icon: venueIcon }).bindPopup(popupHtml);
-              markers.addLayer(marker);
+                `</ul>`;
             }
-          });
+            popupHtml += `<a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}" target="_blank">Get Directions</a>`;
+            // Place marker
+            const marker = L.marker([lat, lng], { icon }).bindPopup(popupHtml);
+            markers.addLayer(marker);
+          }
 
           // Add markers layer to map if zoom >= 11
           if (map.getZoom() >= 11) {
