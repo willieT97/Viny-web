@@ -238,8 +238,10 @@
 
   <script>
     const map = L.map('map').setView([53.0331, -7.2996], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
+    // Replace your current tileLayer with this:
+    L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: '© Google Maps'
     }).addTo(map);
 
     // Helper to create a venue icon with optional count overlay
