@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Viny Map – Enhanced Visibility</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Viny Map – Venues & Gigs</title>
 
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-W45MGJ0PLH"></script>
@@ -11,89 +11,69 @@
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-  
     gtag('config', 'G-W45MGJ0PLH');
   </script>
-    
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+
+  <!-- Leaflet & plugins -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
+
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-    }
-
-    #map {
-      height: calc(100vh - 60px);
-      width: 100%;
-    }
-
-    .leaflet-tile {
-      filter: brightness(0.9) contrast(1.1);
-    }
-
-    .marker-icon {
-      width: 32px;
-      height: 32px;
-      filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.6));
-    }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    #map { height: calc(100vh - 60px); width: 100%; }
+    .leaflet-tile { filter: brightness(0.9) contrast(1.1); }
+    .marker-icon { width: 32px; height: 32px; filter: drop-shadow(0 0 4px rgba(0,0,0,.6)); }
 
     footer {
-      height: 60px;
-      background: rgba(0, 0, 0, 0.8);
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      font-family: sans-serif;
-      font-size: 14px;
+      height: 60px; background: rgba(0,0,0,.8); color: #fff;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-family: sans-serif; font-size: 14px;
     }
+    .footer-links { margin-top: 4px; margin-bottom: 1rem; }
+    .footer-links a { color: #fff; margin: 10px 10px; text-decoration: none; }
+    .footer-links a:hover { text-decoration: underline; }
 
-    .footer-links {
-      margin-top: 4px;
-      margin-bottom: 1rem;
-    }
-
-    .footer-links a {
-      color: #fff;
-      margin: 10px 10px;
-      text-decoration: none;
-    }
-
-    .footer-links a:hover {
-      text-decoration: underline;
-    }
-
-
+    /* Filter control */
     #filter-control {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 1000;
-      background: rgba(0, 0, 0, 0.8);
-      padding: 10px 14px;
-      border-radius: 8px;
-      color: white;
-      font-family: sans-serif;
-      font-size: 14px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.4);
-      display: flex;
-      align-items: center;
-      gap: 10px;
+      position: absolute; top: 10px; right: 10px; z-index: 1000;
+      background: rgba(0,0,0,.8); padding: 10px 14px; border-radius: 8px; color: white;
+      font-family: sans-serif; font-size: 14px; box-shadow: 0 0 8px rgba(0,0,0,.4);
+      display: flex; align-items: center; gap: 10px;
     }
+    #filter-control select { padding: 2px 6px; border-radius: 4px; border: none; }
 
-    #filter-control select {
-      padding: 2px 6px;
-      border-radius: 4px;
-      border: none;
+    /* News sidebar */
+    #news-sidebar {
+      position: fixed; top: 0; left: -400px; width: 300px; height: 100%;
+      background: rgba(0,0,0,.9); color: #fff; transition: left .3s ease; z-index: 1000; padding: 20px;
     }
+    #news-sidebar.open { left: 0; }
+    #news-sidebar h2 { text-align: center; margin-top: 8px; }
+    #close-news { position: absolute; top: 10px; right: 10px; background: transparent; color: #fff; font-size: 36px; border: none; cursor: pointer; }
+    #open-news {
+      position: fixed; top: 20px; left: 3rem; z-index: 1100;
+      background: rgba(0,0,0,.8); color: #fff; padding: 10px 16px; border-radius: 6px; border: none; cursor: pointer;
+      transition: left .3s ease, background .2s ease;
+    }
+    #open-news:hover { background: #ff2727; }
+    #open-news.shifted { left: 320px; }
+
+    .news-container { padding: 1rem; overflow-y: auto; max-height: 100vh; }
+    .news-item {
+      background: #1e1e1e; color: #fff; padding: 1rem; margin-bottom: 1rem; border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.3); transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .news-item:nth-child(odd) { background: #2a2a2a; }
+    .news-item:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,.4); }
+    .news-item h3 { font-family: sans-serif; font-size: 1.2rem; margin: 0 0 .5rem; color: #ff2727; }
+    .news-item small { color: #bbb; font-size: .85rem; }
+    .news-item p { margin: .25rem 0; line-height: 1.4; }
   </style>
 </head>
 <body>
 
+  <!-- Filters -->
   <div id="filter-control">
     <label for="time-filter">Time:</label>
     <select id="time-filter">
@@ -112,180 +92,55 @@
     </select>
   </div>
 
+  <!-- News UI -->
   <button id="open-news">News</button>
-
   <div id="news-sidebar">
     <button id="close-news">×</button>
-    <h2>Latest News</h2>
-    <div id="news-feed">
-    <div class="news-container"></div>
-      <!-- News items will go here -->
-    </div>
+    <h2>Latest News</</h2>
+    <div id="news-feed"><div class="news-container"></div></div>
   </div>
 
-
-
+  <!-- Map -->
   <div id="map"></div>
 
-  <!-- JS LIBRARIES -->
+  <!-- JS libs -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/papaparse@5.3.2/papaparse.min.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
   <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 
-   <style> 
-     /* Sidebar */
-#news-sidebar {
-  position: fixed;
-  top: 0;
-  left: -400px; /* Hidden by default */
-  width: 300px;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.9);
-  color: #fff;
-  transition: left 0.3s ease;
-  z-index: 1000;
-  padding: 20px;
-}
-
-#news-sidebar.open {
-  left: 0;
-}
-
-#news-sidebar h2 {
-  text-align: center;
-  margin-top: 8px; /* optional: adds space below the close button */
-}
-
-#close-news {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: transparent;
-  color: #fff;
-  font-size: 36px;
-  border: none;
-  cursor: pointer;
-}
-
-/* News button */
-#open-news {
-  position: fixed;
-  top: 20px;
-  left: 3rem;
-  z-index: 1100;
-  background: rgba(0, 0, 0, 0.8);
-  color: #fff;
-  padding: 10px 16px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  transition: left 0.3s ease;
-}
-
-#open-news:hover {
-  background: #ff2727;
-}
-
-
-#open-news.shifted {
-  left: 320px; /* matches sidebar width */
-}
-
-.news-container {
-  padding: 1rem;
-  overflow-y: auto;
-  max-height: 100vh; /* so it scrolls if too long */
-}
-
-.news-item {
-  background: #1e1e1e; /* dark card look */
-  color: #fff;
-  padding: 1rem;
-  margin-bottom: 1rem;
-  border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.news-item:nth-child(odd) {
-  background: #2a2a2a; /* alternating backgrounds */
-}
-
-.news-item:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-}
-
-.news-item h3 {
-  font-family: 'Bowlby One SC', sans-serif;
-  font-size: 1.2rem;
-  margin: 0 0 0.5rem;
-  color: #ff2727; /* highlight your main color */
-}
-
-.news-item small {
-  color: #bbb;
-  font-size: 0.85rem;
-}
-
-.news-item p {
-  margin: 0.25rem 0;
-  line-height: 1.4;
-}
-
-  </style>
-
   <script>
-    const map = L.map('map').setView([53.0331, -7.2996], 13);
-    // Replace your current tileLayer with this:
+    /**********************
+     * CONFIG
+     **********************/
+    const gigSheetURL   = 'https://api.sheetbest.com/sheets/1c3ecc0a-2eb8-4b82-b1e4-b5cdb51f4bc7'; // Gigs
+    const venueSheetURL = 'https://api.sheetbest.com/sheets/788082d7-560a-449d-b366-c10f35a0ef12';   // Venues
+    const opencageKey   = '1bce004158a94773afe52570c225384a'; // Geocoding fallback (Eircode -> Lat/Lng)
+
+    /**********************
+     * MAP INIT
+     **********************/
+    const map = L.map('map', { worldCopyJump: false }).setView([53.0331, -7.2996], 13);
+
+    // Prevent repeated worlds and keep within Ireland-ish bounds
+    const IRE_BOUNDS = L.latLngBounds([51.3, -10.8], [55.6, -5.3]);
+
+    // NOTE: Using Google tile server URLs may violate Google's TOS. Swap to OSM if needed:
+    // L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', noWrap: true }).addTo(map);
     L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
       maxZoom: 20,
-      attribution: '© Google Maps'
+      attribution: '© Google Maps',
+      noWrap: true
     }).addTo(map);
 
-    // Helper to create a venue icon with optional count overlay
-    function createVenueIcon(isActive, count) {
-      // Use local image path
-      const imgSrc = isActive ? 'venue-active.png' : 'venue-inactive.png';
-      // If inactive, show plain icon
-      if (!isActive) {
-        return L.divIcon({
-          html: `<img src="${imgSrc}" class="marker-icon"/>`,
-          iconSize: [32, 32],
-          iconAnchor: [16, 32],
-          popupAnchor: [0, -32],
-          className: ''
-        });
-      }
-      // If active, add count overlay
-      // The text size should be about 30% of the PNG height (32px * 0.3 ≈ 10px)
-      const countText = `<span style="
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: 10px;
-        font-weight: bold;
-        color: #fff;
-        text-shadow: 0 0 4px #000, 0 0 2px #000;
-        pointer-events: none;
-        z-index: 2;
-    ">${count}</span>`;
-      return L.divIcon({
-        html: `<div style="position: relative; width:32px; height:32px;">
-          <img src="${imgSrc}" class="marker-icon"/>
-          ${countText}
-        </div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 32],
-        popupAnchor: [0, -32],
-        className: ''
-      });
-    }
+    map.setMaxBounds(IRE_BOUNDS);
+    map.on('drag', () => map.panInsideBounds(IRE_BOUNDS, { animate: false }));
 
     const markers = L.markerClusterGroup({
+      maxClusterRadius: (zoom) => zoom <= 7 ? 20 : zoom <= 10 ? 30 : 40,
       disableClusteringAtZoom: 14,
+      zoomToBoundsOnClick: false,
+      spiderfyOnEveryZoom: false,
+      spiderfyOnMaxZoom: true,
       iconCreateFunction: function(cluster) {
         const count = cluster.getChildCount();
         return L.divIcon({
@@ -293,179 +148,80 @@
             <div style="position: relative; width: 40px; height: 40px;">
               <img src="town.png" style="width: 100%; height: 100%;" />
               <span style="
-                position: absolute;
-                top: 50%;
-                left: 50%;
+                position: absolute; top: 50%; left: 50%;
                 transform: translate(-50%, -50%);
-                font-size: 12px;
-                font-weight: bold;
-                color: white;
-                text-shadow: 0 0 3px #000;
-                pointer-events: none;
-              ">${count}</span>
-            </div>
-          `,
-          className: '', // remove default Leaflet class styling
+                font-size: 12px; font-weight: bold; color: white;
+                text-shadow: 0 0 3px #000; pointer-events: none;">${count}</span>
+            </div>`,
+          className: '',
           iconSize: [40, 40]
         });
       }
     });
+    markers.on('clusterclick', (e) => e.layer.spiderfy());
+
     let heatLayer = null;
-
-    const sheetURL = 'https://api.sheetbest.com/sheets/1c3ecc0a-2eb8-4b82-b1e4-b5cdb51f4bc7';
-    const apiKey = '1bce004158a94773afe52570c225384a';
-
-    function parseSheetDate(dateStr) {
-      dateStr = dateStr.trim();
-      let parts, year, month, day;
-      if (dateStr.includes('-')) {
-        [year, month, day] = dateStr.split('-');
-      } else if (dateStr.includes('/')) {
-        [month, day, year] = dateStr.split('/');
-      } else {
-        return new Date('invalid');
-      }
-      return new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T00:00:00`);
-    }
-
-    function getFilterRangeDays() {
-      return parseInt(document.getElementById('time-filter').value, 10);
-    }
-
-    function getTypeFilter() {
-      return document.getElementById('type-filter').value.toLowerCase();
-    }
-
-    function formatDateToDDMMYYYY(dateObj) {
-      const day = String(dateObj.getDate()).padStart(2, '0');
-      const month = String(dateObj.getMonth() + 1).padStart(2, '0'); // months are 0-based
-      const year = dateObj.getFullYear();
-      return `${day}/${month}/${year}`;
-    }
-
-    // Store event coords for heatmap points
     let heatPoints = [];
 
-    function loadMarkers() {
-      markers.clearLayers();
-      heatPoints = [];
-
-      fetch(sheetURL)
-        .then(response => {
-          if (!response.ok) throw new Error(`Sheet fetch error: ${response.status}`);
-          return response.json();
-        })
-        .then(async data => {
-          // Group all events by venue (using lat,lng or eircode as key)
-          const venueMap = new Map();
-          const venueCoordsMap = new Map();
-          const now = new Date();
-          now.setHours(0, 0, 0, 0);
-          const filterDays = getFilterRangeDays();
-          const futureDate = new Date(now.getTime() + filterDays * 24 * 60 * 60 * 1000);
-          const typeFilter = getTypeFilter();
-          const eircodeCache = new Map();
-
-          async function geocode(eircode) {
-            if (eircodeCache.has(eircode)) return eircodeCache.get(eircode);
-            try {
-              const res = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(eircode)}&key=${apiKey}`);
-              const geoData = await res.json();
-              if (geoData.results.length) {
-                const coords = geoData.results[0].geometry;
-                eircodeCache.set(eircode, coords);
-                return coords;
-              }
-            } catch(e) {
-              console.error(`Geocode error for ${eircode}:`, e);
-            }
-            eircodeCache.set(eircode, null);
-            return null;
-          }
-
-          // First, collect all events, grouped by eircode (or latlng)
-          for (const row of data) {
-            const name    = row.Name || 'Unnamed';
-            const type    = (row.Type || '').trim();
-            const dateRaw = (row.Date || '').trim();
-            const eircode = (row.Eircode || '').trim();
-            const venue   = (row.Venue || '').trim();
-            const time    = (row.Time || '').trim();
-
-            if (!dateRaw || !eircode) continue;
-            // Geocode and store all venues
-            let coords = await geocode(eircode);
-            if (!coords) continue;
-            const key = `${coords.lat.toFixed(6)},${coords.lng.toFixed(6)}`;
-            if (!venueMap.has(key)) venueMap.set(key, []);
-            venueMap.get(key).push({
-              name, type, dateRaw, time, venue, lat: coords.lat, lng: coords.lng
-            });
-            // Remember venue info for this key
-            if (!venueCoordsMap.has(key)) venueCoordsMap.set(key, { lat: coords.lat, lng: coords.lng, venue });
-          }
-
-          // Now, for each venue, determine which events are in the filtered period
-          for (const [key, allEvents] of venueMap.entries()) {
-            const { lat, lng, venue } = venueCoordsMap.get(key);
-            // Filter events for this venue by date/type
-            const filteredEvents = allEvents.filter(ev => {
-              const eventDate = parseSheetDate(ev.dateRaw);
-              if (isNaN(eventDate) || eventDate < now || eventDate > futureDate) return false;
-              const typeLower = (ev.type || '').toLowerCase();
-              if (typeFilter !== 'all' && !typeLower.includes(typeFilter)) return false;
-              return true;
-            });
-            // Add to heatPoints with intensity = number of filtered events
-            heatPoints.push([lat, lng, filteredEvents.length]);
-            // Determine icon: active if at least one event in period, else inactive
-            const isActive = filteredEvents.length > 0;
-            const icon = createVenueIcon(isActive, filteredEvents.length);
-            // Build popup: list all events (not just filtered)
-            let popupHtml = `<div style="font-size:18px; font-weight:bold; margin-bottom:8px;">${venue || 'Venue'}</div>`;
-
-            if (filteredEvents.length === 0) {
-              popupHtml += `<span>No upcoming events in this time range.</span>`;
-            } else {
-              popupHtml += `<ul style="padding-left:18px; margin:0;">` +
-                filteredEvents.map(ev =>
-                  `<li><strong>${ev.name}</strong><br>
-                    Type: (${ev.type})<br>
-                    Date: ${formatDateToDDMMYYYY(parseSheetDate(ev.dateRaw))}<br>
-                    Time:${ev.time ? ' at ' + ev.time : ''}</li>`
-                ).join('') +
-                `</ul>`;
-            }
-            popupHtml += `<a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}" target="_blank">Get Directions</a>`;
-            // Place marker
-            const marker = L.marker([lat, lng], { icon }).bindPopup(popupHtml);
-            markers.addLayer(marker);
-          }
-
-          // Add markers layer to map if zoom >= 11
-          if (map.getZoom() >= 11) {
-            if (!map.hasLayer(markers)) map.addLayer(markers);
-          }
-
-          // Remove existing heat layer and create a new one
-          if (heatLayer) map.removeLayer(heatLayer);
-          heatLayer = L.heatLayer(heatPoints, {
-            radius: 25,
-            blur: 15,
-            maxZoom: 17,
-            max: 10 // max intensity for scaling color
-          });
-
-          // Add heat layer if zoom < 11
-          if (map.getZoom() < 11) {
-            if (!map.hasLayer(heatLayer)) map.addLayer(heatLayer);
-          }
-        })
-        .catch(err => console.error('Fetch or parse error:', err));
+    /**********************
+     * UI HELPERS
+     **********************/
+    function getFilterRangeDays(){ return parseInt(document.getElementById('time-filter').value, 10); }
+    function getTypeFilter(){ return document.getElementById('type-filter').value.toLowerCase(); }
+    function formatDateToDDMMYYYY(d){ return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; }
+    function parseSheetDate(s){
+      if (!s) return new Date('invalid');
+      s = String(s).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s+'T00:00:00');
+      const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (m) return new Date(`${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}T00:00:00`);
+      const t = Date.parse(s); return isNaN(t) ? new Date('invalid') : new Date(t);
     }
 
-    // Switch between markers and heatmap based on zoom level
-    function updateLayerVisibility() {
+    // BBox & coord sanity
+    const IRE_BBOX = { minLat: 51.3, maxLat: 55.6, minLng: -10.8, maxLng: -5.3 };
+    function normalizeLng(lng){ return ((((lng + 180) % 360) + 360) % 360) - 180; }
+    function inIreland(lat,lng){ return lat>=IRE_BBOX.minLat && lat<=IRE_BBOX.maxLat && lng>=IRE_BBOX.minLng && lng<=IRE_BBOX.maxLng; }
+    function sanitizeCoords(lat,lng){
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      let sLat = lat, sLng = normalizeLng(lng);
+      const looksSwapped = Math.abs(lat) > 90 || (Math.abs(lng) <= 90 && Math.abs(lat) > 90);
+      if (looksSwapped || (Math.abs(lat) < Math.abs(lng) && Math.abs(lng) <= 90)) {
+        sLat = lng; sLng = normalizeLng(lat);
+      }
+      if (inIreland(sLat,sLng)) return {lat:sLat,lng:sLng};
+      if (inIreland(lat,normalizeLng(lng))) return {lat, lng: normalizeLng(lng)};
+      if (Math.abs(sLat)<=90 && Math.abs(sLng)<=180) return {lat:sLat,lng:sLng};
+      return null;
+    }
+
+    // Try to read coords from a Google Maps link (no paid APIs; only direct patterns)
+    function coordsFromMapsLinkNoAPI(url){
+      if (!url) return null;
+
+      // 1) Prefer the place pin if present: !3dLAT!4dLNG
+      let m = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/i);
+      if (m) {
+        return { lat: parseFloat(m[1]), lng: parseFloat(m[2]), source: 'maps-url-!3d4d' };
+      }
+
+      return null;
+    }
+
+    // Marker icon with optional count overlay
+    function createVenueIcon(isActive, count){
+      const imgSrc = isActive ? 'venue-active.png' : 'venue-inactive.png';
+      if (!isActive) {
+        return L.divIcon({ html:`<img src="${imgSrc}" class="marker-icon"/>`, iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32], className:'' });
+      }
+      const countText = `<span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:10px;font-weight:bold;color:#fff;text-shadow:0 0 4px #000,0 0 2px #000;pointer-events:none;z-index:2;">${count}</span>`;
+      return L.divIcon({
+        html:`<div style="position:relative;width:32px;height:32px;"><img src="${imgSrc}" class="marker-icon"/>${countText}</div>`,
+        iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32], className:''
+      });
+    }
+
+    function updateLayerVisibility(){
       if (map.getZoom() < 11) {
         if (map.hasLayer(markers)) map.removeLayer(markers);
         if (heatLayer && !map.hasLayer(heatLayer)) map.addLayer(heatLayer);
@@ -475,81 +231,261 @@
       }
     }
 
-    map.on('zoomend', updateLayerVisibility);
-
-    document.getElementById('time-filter').addEventListener('change', () => {
-      loadMarkers();
-    });
-    document.getElementById('type-filter').addEventListener('change', () => {
-      loadMarkers();
-    });
-
-    loadMarkers();
-
- const openNewsBtn = document.getElementById('open-news');
-const closeNewsBtn = document.getElementById('close-news');
-const newsSidebar = document.getElementById('news-sidebar');
-
-openNewsBtn.addEventListener('click', () => {
-  newsSidebar.classList.add('open');
-  openNewsBtn.classList.add('shifted');
-});
-
-closeNewsBtn.addEventListener('click', () => {
-  newsSidebar.classList.remove('open');
-  openNewsBtn.classList.remove('shifted');
-});
-
-
-// Fetch News Feed (using same logic as map)
-fetch(sheetURL)
-  .then(response => response.json())
-  .then(data => {
-    const container = document.querySelector('.news-container');
-
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const filterDays = getFilterRangeDays(); // reuse the map’s filter dropdown
-    const futureDate = new Date(now.getTime() + filterDays * 24 * 60 * 60 * 1000);
-    const typeFilter = getTypeFilter(); // reuse type filter
-
-    const validEvents = [];
-
-    for (const row of data) {
-      const name    = row.Name || 'Unnamed';
-      const type    = (row.Type || '').trim();
-      const dateRaw = (row.Date || '').trim();
-      const venue   = (row.Venue || '').trim();
-      const time    = (row.Time || '').trim();
-
-      if (!dateRaw) continue;
-
-      const eventDate = parseSheetDate(dateRaw);
-      if (isNaN(eventDate) || eventDate < now || eventDate > futureDate) continue;
-
-      const typeLower = type.toLowerCase();
-      if (typeFilter !== 'all' && !typeLower.includes(typeFilter)) continue;
-
-      validEvents.push({ name, type, dateRaw, time, venue, eventDate });
+    /**********************
+     * DATA HELPERS
+     **********************/
+    async function fetchJSON(url){
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`Fetch failed: ${r.status}`);
+      return r.json();
     }
 
-    // Sort newest first
-    validEvents.sort((a, b) => a.eventDate - b.eventDate);
+    const eircodeCache = new Map();
+    async function geocodeEircode(eircode){
+      if (!eircode) return null;
+      if (eircodeCache.has(eircode)) return eircodeCache.get(eircode);
+      try {
+        const res = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(eircode)}&key=${opencageKey}`);
+        const geo = await res.json();
+        if (geo && geo.results && geo.results.length) {
+          const { lat, lng } = geo.results[0].geometry;
+          const coords = { lat, lng };
+          eircodeCache.set(eircode, coords);
+          return coords;
+        }
+      } catch (e) { console.error('Geocode error:', e); }
+      eircodeCache.set(eircode, null);
+      return null;
+    }
 
-    // Build feed
-    validEvents.forEach(ev => {
-      const div = document.createElement('div');
-      div.className = 'news-item';
-      div.innerHTML = `
-        <h3>${ev.name}</h3>
-        <p><small>${ev.dateRaw}${ev.time ? ' at ' + ev.time : ''}</small></p>
-        <p>${ev.venue}</p>
-      `;
-      container.appendChild(div);
-    });
-  })
-  .catch(err => console.error('Feed fetch error:', err));
+    // Unified resolver: prefer explicit Lat/Lng, else Maps link coords, else eircode
+    async function resolveVenueCoords(v){
+      // 1) Lat/Lng columns
+      let lat = parseFloat(v.Lat ?? v.Latitude);
+      let lng = parseFloat(v.Lng ?? v.Longitude);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        const sane = sanitizeCoords(lat,lng);
+        if (sane) return {...sane, source:'sheet-latlng'};
+      }
+      // 2) Google Maps link (no API patterns only)
+      const fromUrl = coordsFromMapsLinkNoAPI((v.Maps || '').trim());
+      if (fromUrl) {
+        const sane = sanitizeCoords(fromUrl.lat, fromUrl.lng);
+        if (sane) return {...sane, source: fromUrl.source};
+      }
+      // 3) Eircode fallback
+      const fromE = await geocodeEircode((v.Eircode || '').trim());
+      if (fromE) {
+        const sane = sanitizeCoords(fromE.lat, fromE.lng);
+        if (sane) return {...sane, source:'eircode'};
+      }
+      return null;
+    }
 
+    /**********************
+     * LOAD & RENDER
+     **********************/
+    async function loadMarkers(){
+      markers.clearLayers();
+      heatPoints = [];
+
+      const now = new Date(); now.setHours(0,0,0,0);
+      const filterDays = getFilterRangeDays();
+      const futureDate = new Date(now.getTime() + filterDays * 24*60*60*1000);
+      const typeFilter = getTypeFilter();
+
+      try {
+        const [gigsRaw, venuesRaw] = await Promise.all([ fetchJSON(gigSheetURL), fetchJSON(venueSheetURL) ]);
+
+        // Index venues by ID; resolve coords with sources
+        const venueById = new Map();
+        for (const v of venuesRaw) {
+          const id = (v.ID || '').trim();
+          if (!id) continue;
+
+          const resolved = await resolveVenueCoords(v);
+          if (!resolved || !inIreland(resolved.lat, resolved.lng)) {
+            console.warn('Skipping venue with odd/missing coords:', { id:v.ID, name:v.Venue, eircode:v.Eircode, maps:v.Maps, resolved });
+            continue;
+          }
+
+          venueById.set(id, {
+            id,
+            name: (v.Venue || '').trim() || id,
+            eircode: (v.Eircode || '').trim(),
+            mapsUrl: (v.Maps || '').trim(),
+            lat: resolved.lat,
+            lng: resolved.lng,
+            coordSource: resolved.source
+          });
+        }
+
+        // Detect identical coordinate duplicates to help spot mistakes
+        const coordKeyMap = new Map();
+        for (const v of venueById.values()) {
+          const key = `${v.lat.toFixed(6)},${v.lng.toFixed(6)}`;
+          if (!coordKeyMap.has(key)) coordKeyMap.set(key, []);
+          coordKeyMap.get(key).push(v.id);
+        }
+        for (const [key, ids] of coordKeyMap.entries()) {
+          if (ids.length > 1) {
+            console.warn('Multiple venues share identical coords', key, '->', ids);
+          }
+        }
+
+        // Group gigs by venue id & filter by date/type window
+        const gigsByVenue = new Map();
+        for (const g of gigsRaw) {
+          const venueId = (g.Venue || '').trim();
+          const venue = venueById.get(venueId);
+          if (!venue) continue;
+
+          const eventDate = parseSheetDate(g.Date);
+          if (isNaN(eventDate) || eventDate < now || eventDate > futureDate) continue;
+
+          const typeLower = String(g.Type || '').toLowerCase();
+          if (typeFilter !== 'all' && !typeLower.includes(typeFilter)) continue;
+
+          const event = {
+            name: (g.Name || 'Unnamed').trim(),
+            type: (g.Type || '').trim(),
+            dateRaw: (g.Date || '').trim(),
+            time: (g.Time || '').trim(),
+            eventDate
+          };
+          if (!gigsByVenue.has(venueId)) gigsByVenue.set(venueId, []);
+          gigsByVenue.get(venueId).push(event);
+        }
+
+        // Render one marker per venue, with count + popup, and build heat points
+        for (const [venueId, venue] of venueById.entries()) {
+          const events = (gigsByVenue.get(venueId) || []).sort((a,b) => a.eventDate - b.eventDate);
+          const count = events.length;
+
+          heatPoints.push([venue.lat, venue.lng, count]);
+
+          const isActive = count > 0;
+          const icon = createVenueIcon(isActive, count);
+
+          let popupHtml = `<div style="font-size:18px;font-weight:bold;margin-bottom:8px;">${venue.name}</div>`;
+          if (count === 0) {
+            popupHtml += `<span>No upcoming events in this time range.</span>`;
+          } else {
+            popupHtml += `<ul style="padding-left:18px;margin:0;">` +
+              events.map(ev => `
+                <li><strong>${ev.name}</strong><br>
+                  Type: (${ev.type})<br>
+                  Date: ${formatDateToDDMMYYYY(ev.eventDate)}${ev.time ? ' at ' + ev.time : ''}</li>`
+              ).join('') + `</ul>`;
+          }
+
+          const link = venue.mapsUrl
+            ? venue.mapsUrl
+            : `https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`;
+          popupHtml += `<div style="margin-top:6px;"><a href="${link}" target="_blank">Get Directions</a></div>`;
+
+          const marker = L.marker([venue.lat, venue.lng], { icon }).bindPopup(popupHtml);
+          markers.addLayer(marker);
+        }
+
+        if (map.getZoom() >= 11) {
+          if (!map.hasLayer(markers)) map.addLayer(markers);
+        }
+
+        if (heatLayer) map.removeLayer(heatLayer);
+        heatLayer = L.heatLayer(heatPoints, { radius: 25, blur: 15, maxZoom: 17, max: 10 });
+        if (map.getZoom() < 11) {
+          if (!map.hasLayer(heatLayer)) map.addLayer(heatLayer);
+        }
+
+      } catch (err) { console.error('Load error:', err); }
+    }
+
+    // Layer toggle on zoom
+    map.on('zoomend', updateLayerVisibility);
+
+    // Filter events
+    document.getElementById('time-filter').addEventListener('change', loadMarkers);
+    document.getElementById('type-filter').addEventListener('change', loadMarkers);
+
+    // Initial load
+    loadMarkers();
+
+    /**********************
+     * NEWS SIDEBAR
+     **********************/
+    const openNewsBtn = document.getElementById('open-news');
+    const closeNewsBtn = document.getElementById('close-news');
+    const newsSidebar = document.getElementById('news-sidebar');
+
+    openNewsBtn.addEventListener('click', () => { newsSidebar.classList.add('open'); openNewsBtn.classList.add('shifted'); });
+    closeNewsBtn.addEventListener('click', () => { newsSidebar.classList.remove('open'); openNewsBtn.classList.remove('shifted'); });
+
+    // Build News feed from gigs + venues (show venue names + coords + source)
+    Promise.all([ fetchJSON(gigSheetURL), fetchJSON(venueSheetURL) ])
+      .then(async ([gigs, venues]) => {
+        const container = document.querySelector('.news-container');
+
+        const now = new Date(); now.setHours(0,0,0,0);
+        const filterDays = getFilterRangeDays();
+        const futureDate = new Date(now.getTime() + filterDays*24*60*60*1000);
+        const typeFilter = getTypeFilter();
+
+        // Build venue meta (with resolved coords + source)
+        const venueMetaById = new Map();
+        for (const v of venues) {
+          const id = (v.ID || '').trim();
+          if (!id) continue;
+
+          const resolved = await resolveVenueCoords(v);
+          venueMetaById.set(id, {
+            name: (v.Venue || '').trim() || id,
+            lat: resolved?.lat,
+            lng: resolved?.lng,
+            source: resolved?.source
+          });
+        }
+
+        const validEvents = [];
+        for (const row of gigs) {
+          const dateRaw = (row.Date || '').trim();
+          if (!dateRaw) continue;
+
+          const eventDate = parseSheetDate(dateRaw);
+          if (isNaN(eventDate) || eventDate < now || eventDate > futureDate) continue;
+
+          const type = (row.Type || '').trim();
+          const typeLower = type.toLowerCase();
+          if (typeFilter !== 'all' && !typeLower.includes(typeFilter)) continue;
+
+          const venueId = (row.Venue || '').trim();
+          const meta = venueMetaById.get(venueId) || {};
+          validEvents.push({
+            name: row.Name || 'Unnamed',
+            type,
+            eventDate,
+            time: (row.Time || '').trim(),
+            venueName: meta.name || venueId || 'Venue',
+            lat: meta.lat, lng: meta.lng, source: meta.source
+          });
+        }
+
+        validEvents.sort((a,b) => a.eventDate - b.eventDate);
+
+        container.innerHTML = '';
+        validEvents.forEach(ev => {
+
+          const div = document.createElement('div');
+          div.className = 'news-item';
+          div.innerHTML = `
+            <h3>${ev.name}</h3>
+            <p><small>${formatDateToDDMMYYYY(ev.eventDate)}${ev.time ? ' at ' + ev.time : ''}</small></p>
+            <p>${ev.venueName}</p>
+          `;
+          container.appendChild(div);
+        });
+      })
+      .catch(err => console.error('Feed fetch error:', err));
   </script>
 
   <footer>
