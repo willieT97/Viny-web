@@ -45,8 +45,10 @@
 
     /* News sidebar */
     #news-sidebar {
-      position: fixed; top: 0; left: -400px; width: 300px; height: 100%;
-      background: rgba(0,0,0,.9); color: #fff; transition: left .3s ease; z-index: 1000; padding: 20px;
+      position: fixed; top: 0; left: -400px; width: 300px; height: 100vh;
+      background: rgba(0,0,0,.9); color: #fff; transition: left .3s ease; z-index: 1000;
+      padding: 20px; box-sizing: border-box;
+      display: flex; flex-direction: column;
     }
     #news-sidebar.open { left: 0; }
     #news-sidebar h2 { text-align: center; margin-top: 8px; }
@@ -59,13 +61,28 @@
     #open-news:hover { background: #ff2727; }
     #open-news.shifted { left: 320px; }
 
-    .news-container { padding: 1rem; overflow-y: auto; max-height: 100vh; }
+    /* Scroll and layout fixes */
+    #news-feed {
+      flex: 1;
+      min-height: 0;               /* ensures it can shrink inside flex */
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .news-container {
+      padding: 0 0 24px;           /* space below last item */
+    }
+
     .news-item {
-      background: #1e1e1e; color: #fff; padding: 1rem; margin-bottom: 1rem; border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,.3); transition: transform .2s ease, box-shadow .2s ease;
+      background: #1e1e1e; color: #fff;
+      padding: 1rem; margin-bottom: 1rem;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.3);
+      transition: transform .2s ease, box-shadow .2s ease;
     }
     .news-item:nth-child(odd) { background: #2a2a2a; }
     .news-item:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,.4); }
+
     .news-item h3 { font-family: sans-serif; font-size: 1.2rem; margin: 0 0 .5rem; color: #ff2727; }
     .news-item small { color: #bbb; font-size: .85rem; }
     .news-item p { margin: .25rem 0; line-height: 1.4; }
@@ -96,7 +113,7 @@
   <button id="open-news">News</button>
   <div id="news-sidebar">
     <button id="close-news">×</button>
-    <h2>Latest News</</h2>
+    <h2>Latest News</h2>
     <div id="news-feed"><div class="news-container"></div></div>
   </div>
 
@@ -440,6 +457,7 @@
           const resolved = await resolveVenueCoords(v);
           venueMetaById.set(id, {
             name: (v.Venue || '').trim() || id,
+            town: (v.Town || '').trim(),
             lat: resolved?.lat,
             lng: resolved?.lng,
             source: resolved?.source
@@ -466,7 +484,8 @@
             eventDate,
             time: (row.Time || '').trim(),
             venueName: meta.name || venueId || 'Venue',
-            lat: meta.lat, lng: meta.lng, source: meta.source
+            lat: meta.lat, lng: meta.lng, source: meta.source,
+            town: meta.town
           });
         }
 
@@ -481,6 +500,7 @@
             <h3>${ev.name}</h3>
             <p><small>${formatDateToDDMMYYYY(ev.eventDate)}${ev.time ? ' at ' + ev.time : ''}</small></p>
             <p>${ev.venueName}</p>
+            <p><small>${ev.town}</small></p>
           `;
           container.appendChild(div);
         });
