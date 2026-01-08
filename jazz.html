@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Viny Jazz Map – Jazz Venues & Gigs</title>
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-W45MGJ0PLH"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-W45MGJ0PLH');
+  </script>
+
+  <!-- Leaflet & plugins -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
+
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; }
+    #map { height: calc(100vh - 60px); width: 100%; }
+    .leaflet-tile { filter: brightness(0.9) contrast(1.1); }
+    .marker-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(0,0,0,.6);
+    } 
+
+    footer {
+      height: 60px;
+      background: #86e2b3ff;
+      color: #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+      font-size: 14px;
+    }
+    .footer-links { margin-top: 4px; margin-bottom: 1rem; }
+    .footer-links a {
+      color: #000;
+      margin: 10px 10px;
+      text-decoration: none;
+    }
+
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
+
+    /* News sidebar */
+    #news-sidebar {
+      position: fixed; top: 0; left: -400px; width: 300px; height: 100vh;
+      background: #86e2b3ff; color: #000; transition: left .3s ease; z-index: 1000;
+      padding: 20px; box-sizing: border-box;
+      display: flex; flex-direction: column;
+    }
+    #news-sidebar.open { left: 0; }
+    #news-sidebar h2 { font-family: sans-serif; text-align: center; margin-top: 8px; }
+    #close-news { font-family: sans-serif; position: absolute; top: 10px; right: 10px; background: transparent; color: #000; font-size: 36px; border: none; cursor: pointer; }
+    #open-news {
+      position: fixed;
+      top: 20px;
+      left: 3rem;
+      z-index: 1100;
+      background: #86e2b3ff;
+      color: #000;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 16px;
+      font-family: sans-serif;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+      transition: left .3s ease, background .2s ease;
+    }
+    #open-news:hover {
+      background: #86e2b3ff;
+    }
+    #open-news.shifted { left: 320px; }
+
+    #news-feed { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+    .news-container { padding: 0 0 24px; }
+
+    .news-item {
+      background: #9de9d3ff; color: #111;
+      padding: 1rem; margin-bottom: 1rem;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.3);
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .news-item:nth-child(odd) { background: #9de9d3ff; }
+    .news-item:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,.4); }
+
+    .news-item h3 { font-family: sans-serif; font-size: 1.2rem; margin: 0 0 .5rem; color: #000; }
+    .news-item small { font-family: sans-serif; color: #555; font-size: .85rem; }
+    .news-item p { font-family: sans-serif; margin: .25rem 0; line-height: 1.4; }
+
+    /* Intro Popup */
+    #intro-popup {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 3000;
+      backdrop-filter: blur(4px);
+    }
+
+    #intro-content {
+      background: #86e2b3ff;
+      color: #000;
+      padding: 32px 28px 26px;
+      border-radius: 32px;
+      max-width: 420px;
+      width: 92%;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      text-align: center;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #intro-logo {
+      width: 100%;
+      max-width: 300px;
+      height: auto;
+      margin-bottom: 18px;
+    }
+
+    #intro-content h2 {
+      margin: 6px 0 2px;
+      font-size: 26px;
+      color: #000;
+    }
+
+    .subtitle {
+      margin: 0 0 14px;
+      font-size: 14px;
+      color: #000;
+      opacity: 0.8;
+    }
+
+    .intro-text {
+      font-size: 15px;
+      line-height: 1.45;
+      margin: 6px 0;
+      color: #000;
+    }
+
+    #intro-close {
+      margin-top: 18px;
+      padding: 12px 28px;
+      background: #000;
+      border: none;
+      border-radius: 10px;
+      color: #86e2b3ff;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+    #intro-close:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 14px rgba(0,0,0,0.35);
+    }
+
+    /* Viny credit */
+    #viny-credit {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      font-size: 15px;
+      opacity: 0.75;
+    }
+
+    #viny-credit img {
+      height: 50px;
+    }
+
+    #day-filter-control {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: #86e2b3ff;
+      color: #000;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-family: sans-serif;
+      font-size: 16px;
+      box-shadow: 0 0 8px rgba(0,0,0,.25);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #day-filter-control select {
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: none;
+      font-weight: bold;
+      font-size: 14px;
+      font-family: sans-serif;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Intro Popup -->
+  <div id="intro-popup">
+    <div id="intro-content">
+
+      <img src="jazzLogoFull.png" alt="Jazz Fest" id="intro-logo">
+
+      <h2>Portlaoise Jazz Festival</h2>
+
+      <h3>
+        30th Jan - 1st Feb
+      </h3>
+      <p class="subtitle">Interactive Gig Map</p>
+
+      <p class="intro-text">
+        Discover great jazz acts across the county
+      </p>
+
+      <button id="intro-close">Find Jazz Gigs</button>
+
+      <div id="viny-credit">
+        <span>Brought to you by</span>
+        <img src="logo.png" alt="Viny">
+      </div>
+
+    </div>
+  </div>
+
+  <div id="day-filter-control">
+    <label for="day-filter">Day:</label>
+    <select id="day-filter">
+      <option value="all" selected>All days</option>
+      <option value="friday">Friday</option>
+      <option value="saturday">Saturday</option>
+      <option value="sunday">Sunday</option>
+    </select>
+  </div>
+
+  <!-- News UI -->
+  <button id="open-news">All Gigs</button>
+  <div id="news-sidebar">
+    <button id="close-news">×</button>
+    <h2>Jazz Listings</h2>
+    <div id="news-feed"><div class="news-container"></div></div>
+  </div>
+
+  <!-- Map -->
+  <div id="map"></div>
+
+  <!-- JS libs -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+
+  <script>
+    /**********************
+     * CONFIG
+     **********************/
+    const gigSheetURL   = 'https://api.sheetbest.com/sheets/1c3ecc0a-2eb8-4b82-b1e4-b5cdb51f4bc7';
+    const venueSheetURL = 'https://api.sheetbest.com/sheets/788082d7-560a-449d-b366-c10f35a0ef12';
+    const opencageKey   = '1bce004158a94773afe52570c225384a';
+
+    /**********************
+     * MAP INIT
+     **********************/
+    const map = L.map('map', { worldCopyJump: false }).setView([53.0331, -7.2996], 13);
+    const IRE_BOUNDS = L.latLngBounds([51.3, -10.8], [55.6, -5.3]);
+
+    L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: '© Google Maps',
+      noWrap: true
+    }).addTo(map);
+
+    map.setMaxBounds(IRE_BOUNDS);
+    map.on('drag', () => map.panInsideBounds(IRE_BOUNDS, { animate: false }));
+
+    const markers = L.markerClusterGroup({
+      maxClusterRadius: (zoom) => zoom <= 7 ? 20 : zoom <= 10 ? 30 : 40,
+      disableClusteringAtZoom: 14,
+      zoomToBoundsOnClick: false,
+      spiderfyOnEveryZoom: false,
+      spiderfyOnMaxZoom: true,
+      iconCreateFunction: function(cluster) {
+        const count = cluster.getChildCount();
+        return L.divIcon({
+          html: `
+            <div style="position: relative; width: 40px; height: 40px;">
+              <img src="jazzCluster.png" style="width: 100%; height: 100%;" />
+              <span style="
+                position: absolute; top: 53%; left: 68%;
+                transform: translate(-50%, -50%);
+                font-size: 12px; font-weight: bold; color: black;
+                text-shadow: 0 0 0px #000; pointer-events: none;">${count}</span>
+            </div>`,
+          className: '',
+          iconSize: [40, 40]
+        });
+      }
+    });
+    markers.on('clusterclick', (e) => e.layer.spiderfy());
+
+    let heatLayer = null;
+    let heatPoints = [];
+
+    /**********************
+     * HELPERS
+     **********************/
+    async function fetchJSON(url){
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`Fetch failed: ${r.status}`);
+      return r.json();
+    }
+
+    function getDayFilter(){
+      return (document.getElementById('day-filter')?.value || 'all').toLowerCase();
+    }
+
+    function matchesDayFilter(dateObj, dayFilter){
+      if (dayFilter === 'all') return true;
+      if (!(dateObj instanceof Date) || isNaN(dateObj)) return false;
+
+      const day = new Intl.DateTimeFormat('en-IE', { weekday: 'long' })
+        .format(dateObj)
+        .toLowerCase();
+
+      return day === dayFilter;
+    }
+
+    function parseSheetDate(s){
+      if (!s) return new Date('invalid');
+      s = String(s).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s+'T00:00:00');
+      const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (m) return new Date(`${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}T00:00:00`);
+      const t = Date.parse(s); return isNaN(t) ? new Date('invalid') : new Date(t);
+    }
+
+    function formatDateToDDMMYYYY(d){
+      return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+    }
+
+    function formatDayAndTime(dateObj, timeStr){
+      if (!(dateObj instanceof Date) || isNaN(dateObj)) return timeStr ? timeStr : 'Time TBC';
+      const day = new Intl.DateTimeFormat('en-IE', { weekday: 'long' }).format(dateObj);
+      return timeStr ? `${day} at ${timeStr}` : day;
+    }
+
+    function isJazzGig(row){
+      const v = (row.Jazz ?? row.jazz ?? '').toString().trim().toLowerCase();
+      return v === '1' || v === 'true' || v === 'yes';
+    }
+
+    const IRE_BBOX = { minLat: 51.3, maxLat: 55.6, minLng: -10.8, maxLng: -5.3 };
+    function normalizeLng(lng){ return ((((lng + 180) % 360) + 360) % 360) - 180; }
+    function inIreland(lat,lng){ return lat>=IRE_BBOX.minLat && lat<=IRE_BBOX.maxLat && lng>=IRE_BBOX.minLng && lng<=IRE_BBOX.maxLng; }
+
+    function sanitizeCoords(lat,lng){
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      let sLat = lat, sLng = normalizeLng(lng);
+      const looksSwapped = Math.abs(lat) > 90 || (Math.abs(lng) <= 90 && Math.abs(lat) > 90);
+      if (looksSwapped || (Math.abs(lat) < Math.abs(lng) && Math.abs(lng) <= 90)) {
+        sLat = lng; sLng = normalizeLng(lat);
+      }
+      if (inIreland(sLat,sLng)) return {lat:sLat,lng:sLng};
+      if (inIreland(lat,normalizeLng(lng))) return {lat, lng: normalizeLng(lng)};
+      if (Math.abs(sLat)<=90 && Math.abs(sLng)<=180) return {lat:sLat,lng:sLng};
+      return null;
+    }
+
+    function coordsFromMapsLinkNoAPI(url){
+      if (!url) return null;
+      const m = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/i);
+      if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]), source: 'maps-url-!3d4d' };
+      return null;
+    }
+
+    function createVenueIcon(){
+      return L.divIcon({
+        html: `<img src="jazz.png" class="marker-icon"/>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+        popupAnchor: [0, -32],
+        className: ''
+      });
+    }
+
+    function updateLayerVisibility(){
+      if (map.getZoom() < 11) {
+        if (map.hasLayer(markers)) map.removeLayer(markers);
+        if (heatLayer && !map.hasLayer(heatLayer)) map.addLayer(heatLayer);
+      } else {
+        if (heatLayer && map.hasLayer(heatLayer)) map.removeLayer(heatLayer);
+        if (!map.hasLayer(markers)) map.addLayer(markers);
+      }
+    }
+
+    const eircodeCache = new Map();
+    async function geocodeEircode(eircode){
+      if (!eircode) return null;
+      if (eircodeCache.has(eircode)) return eircodeCache.get(eircode);
+      try {
+        const res = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(eircode)}&key=${opencageKey}`);
+        const geo = await res.json();
+        if (geo && geo.results && geo.results.length) {
+          const { lat, lng } = geo.results[0].geometry;
+          const coords = { lat, lng };
+          eircodeCache.set(eircode, coords);
+          return coords;
+        }
+      } catch (e) { console.error('Geocode error:', e); }
+      eircodeCache.set(eircode, null);
+      return null;
+    }
+
+    async function resolveVenueCoords(v){
+      let lat = parseFloat(v.Lat ?? v.Latitude);
+      let lng = parseFloat(v.Lng ?? v.Longitude);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        const sane = sanitizeCoords(lat,lng);
+        if (sane) return {...sane, source:'sheet-latlng'};
+      }
+      const fromUrl = coordsFromMapsLinkNoAPI((v.Maps || '').trim());
+      if (fromUrl) {
+        const sane = sanitizeCoords(fromUrl.lat, fromUrl.lng);
+        if (sane) return {...sane, source: fromUrl.source};
+      }
+      const fromE = await geocodeEircode((v.Eircode || '').trim());
+      if (fromE) {
+        const sane = sanitizeCoords(fromE.lat, fromE.lng);
+        if (sane) return {...sane, source:'eircode'};
+      }
+      return null;
+    }
+
+    /**********************
+     * LOAD & RENDER (NO TIME/TYPE FILTERING, JAZZ ONLY)
+     **********************/
+    async function loadJazz(){
+      markers.clearLayers();
+      heatPoints = [];
+
+      try {
+        const [gigsRaw, venuesRaw] = await Promise.all([ fetchJSON(gigSheetURL), fetchJSON(venueSheetURL) ]);
+
+        // Resolve venues
+        const venueById = new Map();
+        for (const v of venuesRaw) {
+          const id = (v.ID || '').trim();
+          if (!id) continue;
+
+          const resolved = await resolveVenueCoords(v);
+          if (!resolved || !inIreland(resolved.lat, resolved.lng)) continue;
+
+          venueById.set(id, {
+            id,
+            name: (v.Venue || '').trim() || id,
+            town: (v.Town || '').trim(),
+            mapsUrl: (v.Maps || '').trim(),
+            lat: resolved.lat,
+            lng: resolved.lng
+          });
+        }
+
+        // Group jazz gigs by venue (NO date/type filters)
+        const gigsByVenue = new Map();
+        const dayFilter = getDayFilter();
+
+        for (const g of gigsRaw) {
+          if (!isJazzGig(g)) continue;
+
+          const venueId = (g.Venue || '').trim();
+          const venue = venueById.get(venueId);
+          if (!venue) continue;
+
+          const eventDate = parseSheetDate(g.Date);
+
+          // ✅ Day filtering (Fri/Sat/Sun/all)
+          if (!matchesDayFilter(eventDate, dayFilter)) continue;
+
+          const event = {
+            name: (g.Name || 'Unnamed').trim(),
+            type: (g.Type || '').trim(),
+            dateRaw: (g.Date || '').trim(),
+            time: (g.Time || '').trim(),
+            eventDate
+          };
+
+          if (!gigsByVenue.has(venueId)) gigsByVenue.set(venueId, []);
+          gigsByVenue.get(venueId).push(event);
+        }
+
+        // Render ONLY venues that have jazz gigs
+        for (const [venueId, events] of gigsByVenue.entries()) {
+          const venue = venueById.get(venueId);
+          if (!venue) continue;
+
+          // Sort with “valid dates first”
+          const sorted = events.sort((a,b) => {
+            const av = isNaN(a.eventDate) ? 1 : 0;
+            const bv = isNaN(b.eventDate) ? 1 : 0;
+            if (av !== bv) return av - bv;
+            return (a.eventDate || 0) - (b.eventDate || 0);
+          });
+
+          const count = sorted.length;
+          heatPoints.push([venue.lat, venue.lng, count]);
+
+          const icon = createVenueIcon();
+
+          let popupHtml = `<div style="font-size:18px;font-weight:bold;margin-bottom:8px;">${venue.name}</div>`;
+          popupHtml += `<ul style="padding-left:18px;margin:0;">` +
+            sorted.map(ev => {
+              const d = (!isNaN(ev.eventDate) && ev.eventDate instanceof Date)
+                ? formatDateToDDMMYYYY(ev.eventDate)
+                : (ev.dateRaw || 'Date TBC');
+              return `
+                <li><strong>${ev.name}</strong><br>
+                  ${formatDayAndTime(ev.eventDate, ev.time)}</li>`;
+            }).join('') + `</ul>`;
+
+          const link = venue.mapsUrl
+            ? venue.mapsUrl
+            : `https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`;
+          popupHtml += `<div style="margin-top:6px;"><a href="${link}" target="_blank">Get Directions</a></div>`;
+
+          markers.addLayer(L.marker([venue.lat, venue.lng], { icon }).bindPopup(popupHtml));
+        }
+
+        if (map.getZoom() >= 11 && !map.hasLayer(markers)) map.addLayer(markers);
+
+        if (heatLayer) map.removeLayer(heatLayer);
+        heatLayer = L.heatLayer(heatPoints, { radius: 25, blur: 15, maxZoom: 17, max: 10 });
+        if (map.getZoom() < 11 && !map.hasLayer(heatLayer)) map.addLayer(heatLayer);
+
+        updateLayerVisibility();
+        buildNewsFeedFromJazz(gigsByVenue, venueById);
+
+      } catch (err) {
+        console.error('Load error:', err);
+      }
+    }
+
+    /**********************
+     * NEWS FEED (JAZZ ONLY)
+     **********************/
+    function buildNewsFeedFromJazz(gigsByVenue, venueById){
+      const container = document.querySelector('.news-container');
+
+      const all = [];
+      for (const [venueId, events] of gigsByVenue.entries()) {
+        const venue = venueById.get(venueId);
+        for (const ev of events) {
+          all.push({
+            ...ev,
+            venueName: venue?.name || venueId,
+            town: venue?.town || ''
+          });
+        }
+      }
+
+      all.sort((a,b) => {
+        const av = isNaN(a.eventDate) ? 1 : 0;
+        const bv = isNaN(b.eventDate) ? 1 : 0;
+        if (av !== bv) return av - bv;
+        return (a.eventDate || 0) - (b.eventDate || 0);
+      });
+
+      container.innerHTML = '';
+      if (!all.length) {
+        container.innerHTML = `<div class="news-item"><h3>No jazz gigs found</h3><p><small>Nothing is currently marked Jazz=1 in the gigs sheet.</small></p></div>`;
+        return;
+      }
+
+      for (const ev of all) {
+        const d = (!isNaN(ev.eventDate) && ev.eventDate instanceof Date)
+          ? formatDateToDDMMYYYY(ev.eventDate)
+          : (ev.dateRaw || 'Date TBC');
+
+        const div = document.createElement('div');
+        div.className = 'news-item';
+        div.innerHTML = `
+          <h3>${ev.name}</h3>
+          <p><small>${d}${ev.time ? ' at ' + ev.time : ''}</small></p>
+          <p>${ev.venueName}</p>
+          <p><small>${ev.town}</small></p>
+        `;
+        container.appendChild(div);
+      }
+    }
+
+    map.on('zoomend', updateLayerVisibility);
+    loadJazz();
+
+    document.getElementById('day-filter').addEventListener('change', loadJazz);
+    
+    /**********************
+     * NEWS SIDEBAR TOGGLE
+     **********************/
+    const openNewsBtn = document.getElementById('open-news');
+    const closeNewsBtn = document.getElementById('close-news');
+    const newsSidebar = document.getElementById('news-sidebar');
+    openNewsBtn.addEventListener('click', () => { newsSidebar.classList.add('open'); openNewsBtn.classList.add('shifted'); });
+    closeNewsBtn.addEventListener('click', () => { newsSidebar.classList.remove('open'); openNewsBtn.classList.remove('shifted'); });
+  </script>
+
+  <!-- Popup logic -->
+  <script>
+  (function () {
+    const popup = document.getElementById('intro-popup');
+    const btn = document.getElementById('intro-close');
+    if (!popup || !btn) return;
+
+    let seen = false;
+    try { seen = !!sessionStorage.getItem('viny_jazz_session_seen'); } catch (e) {}
+    popup.style.display = seen ? 'none' : 'flex';
+
+    function hidePopup() {
+      popup.style.display = 'none';
+      try { sessionStorage.setItem('viny_jazz_session_seen', '1'); } catch (e) {}
+    }
+    btn.addEventListener('click', hidePopup);
+  })();
+  </script>
+
+  <footer>
+    <p>&copy; 2025 Viny. Connecting music lovers to music communities.</p>
+    <div class="footer-links">
+      <a href="index.html">Map</a>
+      <a href="jazz.html">Jazzfest</a>
+      <a href="about.html">About</a>
+      <a href="contact.html">Contact</a>
+    </div>
+  </footer>
+</body>
+</html>

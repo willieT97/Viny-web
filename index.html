@@ -162,6 +162,46 @@
       background: #ff3a3a;
       transform: translateY(-2px);
     }
+
+    /* Jazz promo inside intro popup */
+    #jazz-promo {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.08);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #jazz-promo p {
+      margin: 0;
+      font-size: 14px;
+      color: #ddd;
+    }
+
+    #jazz-promo button {
+      padding: 10px 20px;
+      background: #86e2b3ff;
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+    #jazz-promo img {
+      width: 60px;
+      max-width: 80%;
+      height: auto;
+    }
+
+    #jazz-promo button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 10px rgba(0,0,0,.4);
+    }
   </style>
 </head>
 <body>
@@ -176,13 +216,15 @@
       <h3 class="subtitle">Connecting Music Lovers to Music Community</h3>
 
       <p class="intro-text">
-        This interactive map helps you discover local venues hosting gigs & sessions across Ireland.
+        Use the filters in the top-right to fine-tune the event type and date range.  
+        And the news feed top-left for a list of upcoming gigs.
       </p>
 
-      <p class="intro-text">
-        Use the filters in the top-right to fine-tune the event type and date range.  
-        And the news feed top-left for a list of upcomming gigs.
-      </p>
+      <div id="jazz-promo">
+        <img src="jazzLogoFull.png" alt="Jazz Festival">
+        <p><strong>Jazz Festival Weekend</strong><br>Explore all jazz gigs in one place.</p>
+        <button onclick="window.location.href='jazz.html'">View Jazz Map</button>
+      </div>
 
       <button id="intro-close">Find Local Gigs</button>
     </div>
@@ -208,7 +250,7 @@
   </div>
 
   <!-- News UI -->
-  <button id="open-news">News</button>
+  <button id="open-news">All Gigs</button>
   <div id="news-sidebar">
     <button id="close-news">×</button>
     <h2>Latest News</h2>
@@ -635,7 +677,8 @@
   <footer>
     <p>&copy; 2025 Viny. Connecting music lovers to music communities.</p>
     <div class="footer-links">
-      <a href="map.html">Map</a>
+      <a href="index.html">Map</a>
+      <a href="jazz.html">Jazzfest</a>
       <a href="about.html">About</a>
       <a href="contact.html">Contact</a>
     </div>
