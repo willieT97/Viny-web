@@ -264,13 +264,15 @@
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
   <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script>
     /**********************
      * CONFIG
      **********************/
-    const gigSheetURL   = 'https://api.sheetbest.com/sheets/1c3ecc0a-2eb8-4b82-b1e4-b5cdb51f4bc7'; // Gigs
-    const venueSheetURL = 'https://api.sheetbest.com/sheets/788082d7-560a-449d-b366-c10f35a0ef12';   // Venues
+    const SUPABASE_URL = window.SUPABASE_URL || 'https://rxoybvdvarmlnrblffwe.supabase.co';
+    const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'sb_publishable_YDXSqqWC-6GQXO8Pp2udgw_zOtM_m1e';
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const opencageKey   = '1bce004158a94773afe52570c225384a'; // Geocoding fallback (Eircode -> Lat/Lng)
 
     /**********************
@@ -362,6 +364,18 @@
         return { lat: parseFloat(m[1]), lng: parseFloat(m[2]), source: 'maps-url-!3d4d' };
       }
 
+      // 2) Common map viewport/path pattern: @LAT,LNG
+      m = url.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/i);
+      if (m) {
+        return { lat: parseFloat(m[1]), lng: parseFloat(m[2]), source: 'maps-url-@lat,lng' };
+      }
+
+      // 3) Query-string coords: q=LAT,LNG or destination=LAT,LNG
+      m = url.match(/[?&](?:q|destination)=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/i);
+      if (m) {
+        return { lat: parseFloat(m[1]), lng: parseFloat(m[2]), source: 'maps-url-query' };
+      }
+
       return null;
     }
 
@@ -391,10 +405,104 @@
     /**********************
      * DATA HELPERS
      **********************/
-    async function fetchJSON(url){
-      const r = await fetch(url);
-      if (!r.ok) throw new Error(`Fetch failed: ${r.status}`);
-      return r.json();
+    function pick(row, ...keys){
+      for (const k of keys) {
+        const v = row?.[k];
+        if (v !== undefined && v !== null && String(v).trim() !== '') return v;
+      }
+      return '';
+    }
+
+    async function fetchAllVenueRows(){
+      if (
+        !SUPABASE_URL ||
+        !SUPABASE_ANON_KEY ||
+        SUPABASE_URL.includes('YOUR_PROJECT_ID') ||
+        SUPABASE_ANON_KEY.includes('YOUR_SUPABASE_ANON_KEY')
+      ) {
+        throw new Error('Supabase credentials are not configured in index.html');
+      }
+
+      // Try dedicated venues tables first (quoted/mixed-case then lowercase),
+      // then fallback to map_feed-derived venues.
+      const attempts = [
+        () => sb.from('Venues').select('*'),
+        () => sb.from('venues').select('*'),
+        () => sb.from('map_feed').select('venue_id, venue_name, town, lat, lng, maps_url')
+      ];
+
+      let lastError = null;
+      for (const run of attempts) {
+        const { data, error } = await run();
+        if (!error) return data || [];
+        lastError = error;
+      }
+
+      throw lastError || new Error('Failed to load venue rows');
+    }
+
+    async function fetchFutureGigRows(){
+      if (
+        !SUPABASE_URL ||
+        !SUPABASE_ANON_KEY ||
+        SUPABASE_URL.includes('YOUR_PROJECT_ID') ||
+        SUPABASE_ANON_KEY.includes('YOUR_SUPABASE_ANON_KEY')
+      ) {
+        throw new Error('Supabase credentials are not configured in index.html');
+      }
+
+      const { data, error } = await sb
+        .from('map_feed')
+        .select('*')
+        .gte('start_at', new Date().toISOString())
+        .order('start_at', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    }
+
+    function mapVenuesToLegacyShape(rows){
+      return rows
+        .map(r => ({
+          ID: String(pick(r, 'venue_id', 'id', 'ID')).trim(),
+          Venue: String(pick(r, 'venue_name', 'name', 'Venue')).trim(),
+          Eircode: String(pick(r, 'eircode', 'Eircode')).trim(),
+          Maps: String(pick(r, 'maps_url', 'maps', 'maps_link', 'Maps')).trim(),
+          Lat: pick(r, 'lat', 'latitude', 'Lat', 'Latitude'),
+          Lng: pick(r, 'lng', 'longitude', 'lon', 'Lng', 'Longitude'),
+          Town: String(pick(r, 'town', 'city', 'Town')).trim()
+        }))
+        .filter(v => v.ID);
+    }
+
+    function mapGigsToLegacyShape(rows){
+      return rows
+        .map(r => ({
+          Name: String(pick(r, 'title', 'event_name', 'name', 'Name')).trim(),
+          Type: String(pick(r, 'type', 'event_type', 'Type')).trim(),
+          Date: String(pick(r, 'start_at', 'date', 'Date')).trim(),
+          Time: String(pick(r, 'time', 'start_time', 'Time')).trim(),
+          Venue: String(pick(r, 'venue_id', 'venue', 'venue_code', 'Venue')).trim()
+        }))
+        .filter(g => g.Venue);
+    }
+
+    function mapFeedRowsToVenueShape(rows){
+      const venuesById = new Map();
+      for (const r of rows) {
+        const venueId = String(pick(r, 'venue_id', 'venue', 'venue_code', 'VenueID', 'Venue')).trim();
+        if (!venueId || venuesById.has(venueId)) continue;
+        venuesById.set(venueId, {
+          ID: venueId,
+          Venue: String(pick(r, 'venue_name', 'venue_title', 'name', 'Venue')).trim(),
+          Eircode: String(pick(r, 'eircode', 'Eircode')).trim(),
+          Maps: String(pick(r, 'maps_url', 'maps', 'maps_link', 'Maps')).trim(),
+          Lat: pick(r, 'lat', 'latitude', 'Lat', 'Latitude'),
+          Lng: pick(r, 'lng', 'longitude', 'lon', 'Lng', 'Longitude'),
+          Town: String(pick(r, 'town', 'city', 'Town')).trim()
+        });
+      }
+      return [...venuesById.values()];
     }
 
     const eircodeCache = new Map();
@@ -415,21 +523,23 @@
       return null;
     }
 
-    // Unified resolver: prefer explicit Lat/Lng, else Maps link coords, else eircode
+    // Unified resolver: prefer Maps link coords, else explicit Lat/Lng, else eircode
     async function resolveVenueCoords(v){
-      // 1) Lat/Lng columns
+      // 1) Google Maps link (best real-world placement if maintained)
+      const fromUrl = coordsFromMapsLinkNoAPI((v.Maps || '').trim());
+      if (fromUrl) {
+        const sane = sanitizeCoords(fromUrl.lat, fromUrl.lng);
+        if (sane) return {...sane, source: fromUrl.source};
+      }
+
+      // 2) Lat/Lng columns
       let lat = parseFloat(v.Lat ?? v.Latitude);
       let lng = parseFloat(v.Lng ?? v.Longitude);
       if (Number.isFinite(lat) && Number.isFinite(lng)) {
         const sane = sanitizeCoords(lat,lng);
         if (sane) return {...sane, source:'sheet-latlng'};
       }
-      // 2) Google Maps link (no API patterns only)
-      const fromUrl = coordsFromMapsLinkNoAPI((v.Maps || '').trim());
-      if (fromUrl) {
-        const sane = sanitizeCoords(fromUrl.lat, fromUrl.lng);
-        if (sane) return {...sane, source: fromUrl.source};
-      }
+
       // 3) Eircode fallback
       const fromE = await geocodeEircode((v.Eircode || '').trim());
       if (fromE) {
@@ -452,7 +562,25 @@
       const typeFilter = getTypeFilter();
 
       try {
-        const [gigsRaw, venuesRaw] = await Promise.all([ fetchJSON(gigSheetURL), fetchJSON(venueSheetURL) ]);
+        const [venuesResult, gigsResult] = await Promise.allSettled([
+          fetchAllVenueRows(),
+          fetchFutureGigRows()
+        ]);
+
+        if (gigsResult.status !== 'fulfilled') throw gigsResult.reason;
+        const gigRows = gigsResult.value;
+        const gigsRaw = mapGigsToLegacyShape(gigRows);
+
+        let venuesRaw = [];
+        if (venuesResult.status === 'fulfilled') {
+          venuesRaw = mapVenuesToLegacyShape(venuesResult.value);
+        } else {
+          console.warn('Venues query failed; falling back to map_feed venues:', venuesResult.reason);
+        }
+
+        if (!venuesRaw.length) {
+          venuesRaw = mapFeedRowsToVenueShape(gigRows);
+        }
 
         // Index venues by ID; resolve coords with sources
         const venueById = new Map();
@@ -579,8 +707,19 @@
     closeNewsBtn.addEventListener('click', () => { newsSidebar.classList.remove('open'); openNewsBtn.classList.remove('shifted'); });
 
     // Build News feed from gigs + venues (show venue names + coords + source)
-    Promise.all([ fetchJSON(gigSheetURL), fetchJSON(venueSheetURL) ])
-      .then(async ([gigs, venues]) => {
+    Promise.allSettled([fetchAllVenueRows(), fetchFutureGigRows()])
+      .then(async ([venuesResult, gigsResult]) => {
+        if (gigsResult.status !== 'fulfilled') throw gigsResult.reason;
+        const gigRows = gigsResult.value;
+        const gigs = mapGigsToLegacyShape(gigRows);
+
+        let venues = [];
+        if (venuesResult.status === 'fulfilled') {
+          venues = mapVenuesToLegacyShape(venuesResult.value);
+        } else {
+          console.warn('Venues query failed; using map_feed venue fallback:', venuesResult.reason);
+        }
+        if (!venues.length) venues = mapFeedRowsToVenueShape(gigRows);
         const container = document.querySelector('.news-container');
 
         const now = new Date(); now.setHours(0,0,0,0);
