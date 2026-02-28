@@ -248,18 +248,6 @@
       border-color: #ff2727;
       font-weight: 700;
     }
-    .news-debug {
-      margin: 0 0 12px;
-      padding: 6px 8px;
-      border-radius: 8px;
-      border: 1px solid rgba(255,255,255,.2);
-      background: rgba(255,255,255,.06);
-      color: #ffd7d7;
-      font-size: 12px;
-      line-height: 1.35;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      white-space: pre-wrap;
-    }
     .news-item img {
       width: 100%;
       max-height: 220px;
@@ -591,7 +579,6 @@
       <button class="news-filter-btn" data-feed-kind="gig" type="button">Gigs</button>
       <button class="news-filter-btn" data-feed-kind="post" type="button">Posts</button>
     </div>
-    <div id="news-post-debug" class="news-debug">Posts debug: idle</div>
     <div id="news-feed"><div class="news-container"></div></div>
   </div>
 
@@ -742,18 +729,8 @@ error: ${mapDebug.error || 'none'}`;
     let heatPoints = [];
     let heatMax = 10;
     let newsFeedKind = 'all';
-    const postsDebugEl = document.getElementById('news-post-debug');
     let currentSessionUser = null;
     let currentSessionRole = null;
-
-    function setPostsDebug(state, details = {}){
-      if (!postsDebugEl) return;
-      const detailText = Object.entries(details)
-        .filter(([, value]) => value !== undefined && value !== null && value !== '')
-        .map(([key, value]) => `${key}=${value}`)
-        .join(' | ');
-      postsDebugEl.textContent = `Posts debug: ${state}${detailText ? ` | ${detailText}` : ''}`;
-    }
 
     /**********************
      * UI HELPERS
@@ -1649,12 +1626,6 @@ error: ${mapDebug.error || 'none'}`;
       const { start, end } = range;
       const typeFilter = getTypeFilter();
       const container = document.querySelector('.news-container');
-      setPostsDebug('loading', {
-        tab: newsFeedKind,
-        start: start.toISOString(),
-        end: end.toISOString(),
-        type: typeFilter
-      });
 
       const renderNewsItems = async (allItems, postsFetchError, postsFinalized) => {
         const filteredItems = allItems.filter((item) => {
@@ -1663,22 +1634,20 @@ error: ${mapDebug.error || 'none'}`;
           if (newsFeedKind === 'post') return item.kind === 'post';
           return true;
         });
-        const renderedPosts = filteredItems.filter((item) => item.kind === 'post').length;
-
         filteredItems.sort((a,b) => a.sortDate - b.sortDate);
         container.innerHTML = '';
 
         if (!filteredItems.length) {
           if (!postsFinalized && newsFeedKind === 'post') {
             container.innerHTML = `<div class="news-item"><p>Loading posts...</p></div>`;
-            return { renderedTotal: 0, renderedPosts: 0, totalSource: allItems.length };
+            return;
           }
           if (newsFeedKind !== 'gig' && postsFetchError) {
             container.innerHTML = `<div class="news-item"><p>Posts are unavailable right now: ${escapeHtml(postsFetchError)}</p></div>`;
-            return { renderedTotal: 0, renderedPosts: 0, totalSource: allItems.length };
+            return;
           }
           container.innerHTML = `<div class="news-item"><p>No gigs or posts match the current filters.</p></div>`;
-          return { renderedTotal: 0, renderedPosts: 0, totalSource: allItems.length };
+          return;
         }
 
         filteredItems.forEach(ev => {
@@ -1703,11 +1672,6 @@ error: ${mapDebug.error || 'none'}`;
           }
           container.appendChild(div);
         });
-        return {
-          renderedTotal: filteredItems.length,
-          renderedPosts,
-          totalSource: allItems.length
-        };
       };
 
       try {
@@ -1761,12 +1725,7 @@ error: ${mapDebug.error || 'none'}`;
             town: meta.town
           });
         }
-        const initialRender = await renderNewsItems(gigItems, '', false);
-        setPostsDebug('gigs rendered, loading posts', {
-          gigs: gigItems.length,
-          cards: initialRender.renderedTotal,
-          postsRendered: initialRender.renderedPosts
-        });
+        await renderNewsItems(gigItems, '', false);
 
         const postsResult = await Promise.allSettled([fetchVenuePostRows()]);
         const posts = postsResult[0].status === 'fulfilled' ? postsResult[0].value : [];
@@ -1776,11 +1735,6 @@ error: ${mapDebug.error || 'none'}`;
         if (postsResult[0].status !== 'fulfilled') {
           console.warn('Venue posts query failed:', postsResult[0].reason);
         }
-        setPostsDebug(postsFetchError ? 'posts fetch failed' : 'posts fetched', {
-          rows: posts.length,
-          error: postsFetchError || 'none'
-        });
-
         const postItems = [];
         for (const post of posts) {
           const createdAtRaw = String(post.created_at || '').trim();
@@ -1801,17 +1755,9 @@ error: ${mapDebug.error || 'none'}`;
             town: ''
           });
         }
-        const finalRender = await renderNewsItems([...gigItems, ...postItems], postsFetchError, true);
-        setPostsDebug(postsFetchError ? 'rendered with post error' : 'rendered', {
-          postsFetched: posts.length,
-          postsMapped: postItems.length,
-          postsRendered: finalRender.renderedPosts,
-          cards: finalRender.renderedTotal,
-          tab: newsFeedKind
-        });
+        await renderNewsItems([...gigItems, ...postItems], postsFetchError, true);
       } catch (err) {
         console.error('Feed fetch error:', err);
-        setPostsDebug('load error', { error: err?.message || String(err) });
         if (container) {
           container.innerHTML = `<div class="news-item"><p>Could not load news feed right now. ${escapeHtml(err?.message || String(err))}</p></div>`;
         }
