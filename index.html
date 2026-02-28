@@ -248,6 +248,18 @@
       border-color: #ff2727;
       font-weight: 700;
     }
+    .news-debug {
+      margin: 0 0 12px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,.2);
+      background: rgba(255,255,255,.06);
+      color: #ffd7d7;
+      font-size: 12px;
+      line-height: 1.35;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      white-space: pre-wrap;
+    }
     .news-item img {
       width: 100%;
       max-height: 220px;
@@ -579,6 +591,7 @@
       <button class="news-filter-btn" data-feed-kind="gig" type="button">Gigs</button>
       <button class="news-filter-btn" data-feed-kind="post" type="button">Posts</button>
     </div>
+    <div id="news-post-debug" class="news-debug">Posts debug: idle</div>
     <div id="news-feed"><div class="news-container"></div></div>
   </div>
 
@@ -640,7 +653,7 @@ markersAdded: ${mapDebug.markersAdded}
 fallbackAdded: ${mapDebug.fallbackAdded}
 error: ${mapDebug.error || 'none'}`;
     }
-    const QUERY_TIMEOUT_MS = 3000;
+    const QUERY_TIMEOUT_MS = 7000;
     async function withTimeout(promise, ms, label){
       let timeoutId;
       try {
@@ -729,8 +742,18 @@ error: ${mapDebug.error || 'none'}`;
     let heatPoints = [];
     let heatMax = 10;
     let newsFeedKind = 'all';
+    const postsDebugEl = document.getElementById('news-post-debug');
     let currentSessionUser = null;
     let currentSessionRole = null;
+
+    function setPostsDebug(state, details = {}){
+      if (!postsDebugEl) return;
+      const detailText = Object.entries(details)
+        .filter(([, value]) => value !== undefined && value !== null && value !== '')
+        .map(([key, value]) => `${key}=${value}`)
+        .join(' | ');
+      postsDebugEl.textContent = `Posts debug: ${state}${detailText ? ` | ${detailText}` : ''}`;
+    }
 
     /**********************
      * UI HELPERS
@@ -1273,14 +1296,30 @@ error: ${mapDebug.error || 'none'}`;
         throw new Error('Supabase credentials are not configured in index.html');
       }
 
-      const { data, error } = await sb
-        .from('venue_posts')
-        .select('id, user_id, title, body, image_url, created_at')
-        .order('created_at', { ascending: false })
-        .limit(80);
-
-      if (error) throw error;
-      return data || [];
+      const restPath = 'venue_posts?select=id,user_id,title,body,image_url,created_at&order=created_at.desc&limit=80';
+      try {
+        return await restSelect(restPath, 'REST venue_posts');
+      } catch (restErr) {
+        let lastErr = restErr;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const result = await withTimeout(
+            sb
+              .from('venue_posts')
+              .select('id, user_id, title, body, image_url, created_at')
+              .order('created_at', { ascending: false })
+              .limit(80),
+            QUERY_TIMEOUT_MS,
+            'venue_posts query'
+          );
+          if (!result?.error) return result?.data || [];
+          lastErr = result.error;
+          const msg = String(lastErr?.message || lastErr);
+          const retryable = /AbortError|Lock was stolen by another request/i.test(msg);
+          if (!retryable || attempt === 1) break;
+          await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+        }
+        throw lastErr;
+      }
     }
 
     async function fetchVenueProfileRows(){
@@ -1300,7 +1339,7 @@ error: ${mapDebug.error || 'none'}`;
 
       let lastError = null;
       for (const run of attempts) {
-        const { data, error } = await run();
+        const { data, error } = await withTimeout(run(), QUERY_TIMEOUT_MS, 'venue_profiles query');
         if (!error) return data || [];
         lastError = error;
       }
@@ -1609,134 +1648,37 @@ error: ${mapDebug.error || 'none'}`;
       if (!range) return;
       const { start, end } = range;
       const typeFilter = getTypeFilter();
+      const container = document.querySelector('.news-container');
+      setPostsDebug('loading', {
+        tab: newsFeedKind,
+        start: start.toISOString(),
+        end: end.toISOString(),
+        type: typeFilter
+      });
 
-      try {
-        const [venuesResult, gigsResult, postsResult, venueProfilesResult] = await Promise.allSettled([
-          fetchAllVenueRows(),
-          fetchFutureGigRows(),
-          fetchVenuePostRows(),
-          fetchVenueProfileRows()
-        ]);
-        if (gigsResult.status !== 'fulfilled') throw gigsResult.reason;
-        const gigRows = gigsResult.value;
-        const gigs = mapGigsToLegacyShape(gigRows);
-        const posts = postsResult.status === 'fulfilled' ? postsResult.value : [];
-        if (postsResult.status !== 'fulfilled') {
-          console.warn('Venue posts query failed:', postsResult.reason);
-        }
-
-        let venues = [];
-        if (venuesResult.status === 'fulfilled') {
-          venues = mapVenuesToLegacyShape(venuesResult.value);
-        } else {
-          console.warn('Venues query failed; using map_feed venue fallback:', venuesResult.reason);
-        }
-        if (!venues.length) venues = mapFeedRowsToVenueShape(gigRows);
-        const container = document.querySelector('.news-container');
-        const venueProfiles = venueProfilesResult.status === 'fulfilled' ? venueProfilesResult.value : [];
-        if (venueProfilesResult.status !== 'fulfilled') {
-          console.warn('Venue profiles query failed:', venueProfilesResult.reason);
-        }
-
-        const venueMetaById = new Map();
-        for (const v of venues) {
-          const id = (v.ID || '').trim();
-          if (!id) continue;
-          const resolved = await resolveVenueCoords(v);
-          venueMetaById.set(id, {
-            name: (v.Venue || '').trim() || id,
-            town: (v.Town || '').trim(),
-            lat: resolved?.lat,
-            lng: resolved?.lng,
-            source: resolved?.source
-          });
-        }
-        const venueMetaByUserId = new Map();
-        for (const p of venueProfiles) {
-          const uid = String(p.user_id || '').trim();
-          if (!uid) continue;
-          venueMetaByUserId.set(uid, {
-            venueName: String(p.venue_name || '').trim(),
-            town: String(p.town || '').trim()
-          });
-        }
-
-        const validItems = [];
-        for (const row of gigs) {
-          const dateRaw = (row.Date || '').trim();
-          if (!dateRaw) continue;
-
-          const eventDate = parseSheetDate(dateRaw);
-          if (isNaN(eventDate) || eventDate < start || eventDate > end) continue;
-
-          const type = (row.Type || '').trim();
-          const typeLower = type.toLowerCase();
-          if (typeFilter !== 'all' && !typeLower.includes(typeFilter)) continue;
-
-          const venueId = (row.Venue || '').trim();
-          const meta = venueMetaById.get(venueId) || {};
-          validItems.push({
-            kind: 'gig',
-            name: row.Name || 'Unnamed',
-            type,
-            sortDate: eventDate,
-            time: (row.Time || '').trim(),
-            venueName: meta.name || venueId || 'Venue',
-            lat: meta.lat, lng: meta.lng, source: meta.source,
-            town: meta.town
-          });
-        }
-
-        for (const post of posts) {
-          const postDate = new Date(post.created_at);
-          if (isNaN(postDate)) continue;
-          if (postDate < start || postDate > end) continue;
-
-          const meta = venueMetaByUserId.get(String(post.user_id || '').trim()) || {};
-          validItems.push({
-            kind: 'post',
-            postType: 'venue',
-            postId: String(post.id || '').trim(),
-            name: post.title || 'Venue Post',
-            body: post.body || '',
-            imageUrl: post.image_url || '',
-            sortDate: postDate,
-            time: '',
-            venueName: meta.venueName || 'Venue',
-            town: meta.town || ''
-          });
-        }
-
-        const filteredItems = validItems.filter((item) => {
+      const renderNewsItems = async (allItems, postsFetchError, postsFinalized) => {
+        const filteredItems = allItems.filter((item) => {
           if (newsFeedKind === 'all') return true;
           if (newsFeedKind === 'gig') return item.kind === 'gig';
           if (newsFeedKind === 'post') return item.kind === 'post';
           return true;
         });
+        const renderedPosts = filteredItems.filter((item) => item.kind === 'post').length;
 
         filteredItems.sort((a,b) => a.sortDate - b.sortDate);
         container.innerHTML = '';
 
-        const postIds = filteredItems
-          .filter((item) => item.kind === 'post' && item.postId)
-          .map((item) => item.postId);
-        const commentsByPostId = new Map();
-        if (postIds.length) {
-          const { data: commentRows, error: commentError } = await sb
-            .from(POST_COMMENTS_TABLE)
-            .select('id, post_id, author_role, author_label, body, created_at')
-            .eq('post_type', 'venue')
-            .in('post_id', postIds)
-            .order('created_at', { ascending: true });
-          if (!commentError) {
-            for (const row of commentRows || []) {
-              const key = String(row.post_id || '');
-              if (!commentsByPostId.has(key)) commentsByPostId.set(key, []);
-              commentsByPostId.get(key).push(row);
-            }
-          } else {
-            console.warn('Post comments query failed:', commentError);
+        if (!filteredItems.length) {
+          if (!postsFinalized && newsFeedKind === 'post') {
+            container.innerHTML = `<div class="news-item"><p>Loading posts...</p></div>`;
+            return { renderedTotal: 0, renderedPosts: 0, totalSource: allItems.length };
           }
+          if (newsFeedKind !== 'gig' && postsFetchError) {
+            container.innerHTML = `<div class="news-item"><p>Posts are unavailable right now: ${escapeHtml(postsFetchError)}</p></div>`;
+            return { renderedTotal: 0, renderedPosts: 0, totalSource: allItems.length };
+          }
+          container.innerHTML = `<div class="news-item"><p>No gigs or posts match the current filters.</p></div>`;
+          return { renderedTotal: 0, renderedPosts: 0, totalSource: allItems.length };
         }
 
         filteredItems.forEach(ev => {
@@ -1750,29 +1692,6 @@ error: ${mapDebug.error || 'none'}`;
               <p><small>${ev.town}</small></p>
             `;
           } else {
-            const postComments = commentsByPostId.get(ev.postId) || [];
-            const commentListHtml = postComments.length
-              ? postComments.map((comment) => `
-                  <article class="comment-item">
-                    <div class="comment-meta">
-                      <span class="comment-role ${roleClass(comment.author_role)}">${roleLabel(comment.author_role)}</span>
-                      <span>${escapeHtml(comment.author_label || 'Community member')}</span>
-                      <span>${escapeHtml(formatCommentTime(comment.created_at))}</span>
-                    </div>
-                    <p class="comment-body">${escapeHtml(comment.body || '')}</p>
-                  </article>
-                `).join('')
-              : `<div class="comment-empty">No comments yet.</div>`;
-
-            const commentComposerHtml = currentSessionUser?.id
-              ? `
-                <form class="comment-form" data-post-type="venue" data-post-id="${escapeHtml(ev.postId)}">
-                  <textarea class="comment-input" name="comment_body" maxlength="1000" placeholder="Add a comment..." required></textarea>
-                  <button class="comment-submit" type="submit">Comment</button>
-                </form>
-              `
-              : `<div class="comment-login">Log in as a fan, artist, or venue to comment. <a href="login.html">Login</a></div>`;
-
             div.innerHTML = `
               <h3>${escapeHtml(ev.name)}</h3>
               <p><small>Venue post · ${formatDateToDDMMYYYY(ev.sortDate)}</small></p>
@@ -1780,17 +1699,122 @@ error: ${mapDebug.error || 'none'}`;
               <p>${escapeHtml(ev.body)}</p>
               ${ev.imageUrl ? `<img src="${escapeHtml(ev.imageUrl)}" alt="Venue post image" />` : ''}
               <p><small>${escapeHtml(ev.town)}</small></p>
-              <section class="comments-wrap">
-                <h4 class="comments-title">Comments</h4>
-                <div class="comment-list">${commentListHtml}</div>
-                ${ev.postId ? commentComposerHtml : '<div class="comment-empty">Comments unavailable for this post.</div>'}
-              </section>
             `;
           }
           container.appendChild(div);
         });
+        return {
+          renderedTotal: filteredItems.length,
+          renderedPosts,
+          totalSource: allItems.length
+        };
+      };
+
+      try {
+        const [venuesResult, gigsResult] = await Promise.allSettled([
+          fetchAllVenueRows(),
+          fetchFutureGigRows()
+        ]);
+        if (gigsResult.status !== 'fulfilled') throw gigsResult.reason;
+        const gigRows = gigsResult.value;
+        const gigs = mapGigsToLegacyShape(gigRows);
+
+        let venues = [];
+        if (venuesResult.status === 'fulfilled') {
+          venues = mapVenuesToLegacyShape(venuesResult.value);
+        } else {
+          console.warn('Venues query failed; using map_feed venue fallback:', venuesResult.reason);
+        }
+        if (!venues.length) venues = mapFeedRowsToVenueShape(gigRows);
+
+        const venueMetaById = new Map();
+        for (const v of venues) {
+          const id = (v.ID || '').trim();
+          if (!id) continue;
+          venueMetaById.set(id, {
+            name: (v.Venue || '').trim() || id,
+            town: (v.Town || '').trim()
+          });
+        }
+
+        const gigItems = [];
+        for (const row of gigs) {
+          const dateRaw = (row.Date || '').trim();
+          if (!dateRaw) continue;
+
+          const eventDate = parseSheetDate(dateRaw);
+          if (isNaN(eventDate) || eventDate < start || eventDate > end) continue;
+
+          const type = (row.Type || '').trim();
+          const typeLower = type.toLowerCase();
+          if (typeFilter !== 'all' && !typeLower.includes(typeFilter)) continue;
+
+          const venueId = (row.Venue || '').trim();
+          const meta = venueMetaById.get(venueId) || {};
+          gigItems.push({
+            kind: 'gig',
+            name: row.Name || 'Unnamed',
+            type,
+            sortDate: eventDate,
+            time: (row.Time || '').trim(),
+            venueName: meta.name || venueId || 'Venue',
+            town: meta.town
+          });
+        }
+        const initialRender = await renderNewsItems(gigItems, '', false);
+        setPostsDebug('gigs rendered, loading posts', {
+          gigs: gigItems.length,
+          cards: initialRender.renderedTotal,
+          postsRendered: initialRender.renderedPosts
+        });
+
+        const postsResult = await Promise.allSettled([fetchVenuePostRows()]);
+        const posts = postsResult[0].status === 'fulfilled' ? postsResult[0].value : [];
+        const postsFetchError = postsResult[0].status !== 'fulfilled'
+          ? (postsResult[0].reason?.message || String(postsResult[0].reason || 'Unknown error'))
+          : '';
+        if (postsResult[0].status !== 'fulfilled') {
+          console.warn('Venue posts query failed:', postsResult[0].reason);
+        }
+        setPostsDebug(postsFetchError ? 'posts fetch failed' : 'posts fetched', {
+          rows: posts.length,
+          error: postsFetchError || 'none'
+        });
+
+        const postItems = [];
+        for (const post of posts) {
+          const createdAtRaw = String(post.created_at || '').trim();
+          if (!createdAtRaw) continue;
+          let postDate = new Date(createdAtRaw);
+          if (isNaN(postDate)) postDate = new Date(createdAtRaw.replace(' ', 'T'));
+          if (isNaN(postDate)) continue;
+          postItems.push({
+            kind: 'post',
+            postType: 'venue',
+            postId: String(post.id || '').trim(),
+            name: post.title || 'Venue Post',
+            body: post.body || '',
+            imageUrl: post.image_url || '',
+            sortDate: postDate,
+            time: '',
+            venueName: 'Venue',
+            town: ''
+          });
+        }
+        const finalRender = await renderNewsItems([...gigItems, ...postItems], postsFetchError, true);
+        setPostsDebug(postsFetchError ? 'rendered with post error' : 'rendered', {
+          postsFetched: posts.length,
+          postsMapped: postItems.length,
+          postsRendered: finalRender.renderedPosts,
+          cards: finalRender.renderedTotal,
+          tab: newsFeedKind
+        });
       } catch (err) {
         console.error('Feed fetch error:', err);
+        setPostsDebug('load error', { error: err?.message || String(err) });
+        if (container) {
+          container.innerHTML = `<div class="news-item"><p>Could not load news feed right now. ${escapeHtml(err?.message || String(err))}</p></div>`;
+        }
       }
     }
 
@@ -1819,15 +1843,7 @@ error: ${mapDebug.error || 'none'}`;
       console.error('Initial applyFilters error:', err);
     });
     refreshSessionCache()
-      .catch((err) => console.warn('Session preload failed:', err))
-      .finally(() => {
-        applyFilters().catch((err) => {
-          mapDebug.stage = 'applyFilters:post-session-error';
-          mapDebug.error = err?.message || String(err);
-          updateDebugPanel();
-          console.error('Post-session applyFilters error:', err);
-        });
-      });
+      .catch((err) => console.warn('Session preload failed:', err));
 
     /**********************
      * NEWS SIDEBAR
