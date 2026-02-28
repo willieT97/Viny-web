@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Viny Artist Profile</title>
+  <style>
+    :root {
+      --bg-0: #0a0d10;
+      --bg-1: #151a20;
+      --ink: #f4f7fb;
+      --muted: #9aa7b5;
+      --line: rgba(255, 255, 255, 0.12);
+      --card: rgba(255, 255, 255, 0.04);
+      --brand: #ff2e2e;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Avenir Next", "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 10%, rgba(255, 46, 46, 0.15), transparent 32%),
+        radial-gradient(circle at 90% 80%, rgba(58, 130, 255, 0.16), transparent 36%),
+        linear-gradient(145deg, var(--bg-0), var(--bg-1));
+    }
+
+    .shell {
+      width: min(1080px, 100%);
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 12px;
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: clamp(20px, 2.8vw, 28px);
+    }
+
+    .muted {
+      color: var(--muted);
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .btn:hover {
+      border-color: rgba(255, 255, 255, 0.35);
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .btn.brand {
+      border: none;
+      background: linear-gradient(180deg, #ff3a3a, var(--brand));
+    }
+
+    .status {
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.06);
+      font-size: 14px;
+    }
+
+    .status.error {
+      border-color: rgba(255, 102, 102, 0.5);
+      color: #ffd1d1;
+      background: rgba(255, 72, 72, 0.16);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 14px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--card);
+      padding: 16px;
+    }
+
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+
+    .card .intro {
+      margin: 0 0 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .span-7 { grid-column: span 7; }
+    .span-5 { grid-column: span 5; }
+    .span-12 { grid-column: span 12; }
+
+    .profile-head {
+      display: grid;
+      grid-template-columns: 96px 1fr;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .profile-photo {
+      width: 96px;
+      height: 96px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      object-fit: cover;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .profile-name {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    .profile-genre {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .profile-bio {
+      margin: 0;
+      color: #e6ebf2;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .link-list {
+      margin-top: 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .link-list a {
+      color: #a7cbff;
+      text-decoration: none;
+      font-size: 14px;
+      word-break: break-all;
+    }
+
+    .link-list a:hover { text-decoration: underline; }
+
+    .mini-list { display: grid; gap: 8px; margin-top: 10px; }
+
+    .mini-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .mini-item h4 {
+      margin: 0 0 4px;
+      font-size: 14px;
+      color: #fff;
+    }
+
+    .mini-meta {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .comment-role {
+      display: inline-block;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      border-radius: 999px;
+      padding: 2px 8px;
+      margin-right: 8px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .comment-role.role-fan { background: rgba(73, 171, 255, 0.2); border-color: rgba(73, 171, 255, 0.45); }
+    .comment-role.role-artist { background: rgba(255, 156, 77, 0.2); border-color: rgba(255, 156, 77, 0.45); }
+    .comment-role.role-venue { background: rgba(45, 215, 122, 0.2); border-color: rgba(45, 215, 122, 0.45); }
+
+    @media (max-width: 900px) {
+      .span-7, .span-5, .span-12 { grid-column: span 12; }
+      .profile-head { grid-template-columns: 72px 1fr; }
+      .profile-photo { width: 72px; height: 72px; }
+      .actions { width: 100%; justify-content: flex-start; }
+      .topbar { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div id="status" class="status">Checking session...</div>
+
+    <header class="topbar">
+      <div>
+        <h1>Artist Profile</h1>
+        <p class="muted" id="welcome-line">Signed in as ...</p>
+      </div>
+      <div class="actions">
+        <a class="btn" href="artist-dashboard.html">Edit Profile</a>
+        <a class="btn" href="index.html">View Public Map</a>
+        <button class="btn brand" id="sign-out" type="button">Sign Out</button>
+      </div>
+    </header>
+
+    <section class="grid">
+      <article class="card span-7">
+        <h2>Your Profile</h2>
+        <p class="intro">This is your artist-facing summary card.</p>
+        <div class="profile-head">
+          <img id="profile-image" class="profile-photo" alt="Artist profile" />
+          <div>
+            <h3 id="profile-name" class="profile-name">No stage name set</h3>
+            <p id="profile-genre" class="profile-genre">Genre not set</p>
+          </div>
+        </div>
+        <p id="profile-bio" class="profile-bio">No bio added yet.</p>
+        <div id="profile-links" class="link-list"></div>
+      </article>
+
+      <article class="card span-5">
+        <h2>Upcoming Gigs</h2>
+        <p class="intro">Gigs created by your account from now onward.</p>
+        <div id="artist-gig-list" class="mini-list"></div>
+      </article>
+
+      <article class="card span-12">
+        <h2>Comments On Artist Posts</h2>
+        <p class="intro">Recent comments for artist post content.</p>
+        <div id="artist-comment-list" class="mini-list"></div>
+      </article>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = window.SUPABASE_URL || "https://rxoybvdvarmlnrblffwe.supabase.co";
+    const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || "sb_publishable_YDXSqqWC-6GQXO8Pp2udgw_zOtM_m1e";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const PROFILE_TABLE = "artist_profiles";
+    const GIGS_TABLE = "gigs";
+    const COMMENTS_TABLE = "post_comments";
+
+    const statusEl = document.getElementById("status");
+    const welcomeEl = document.getElementById("welcome-line");
+    const signOutBtn = document.getElementById("sign-out");
+    const profileImageEl = document.getElementById("profile-image");
+    const profileNameEl = document.getElementById("profile-name");
+    const profileGenreEl = document.getElementById("profile-genre");
+    const profileBioEl = document.getElementById("profile-bio");
+    const profileLinksEl = document.getElementById("profile-links");
+    const artistGigListEl = document.getElementById("artist-gig-list");
+    const artistCommentListEl = document.getElementById("artist-comment-list");
+
+    let currentUser = null;
+
+    function roleClass(role) {
+      const value = String(role || "fan").toLowerCase();
+      if (value === "artist") return "role-artist";
+      if (value === "venue") return "role-venue";
+      return "role-fan";
+    }
+
+    function roleLabel(role) {
+      const value = String(role || "fan").toLowerCase();
+      if (value === "artist") return "Artist";
+      if (value === "venue") return "Venue";
+      return "Fan";
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function formatDate(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      if (isNaN(d)) return "";
+      return d.toLocaleString("en-IE", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function normalizeUrl(url) {
+      const value = String(url || "").trim();
+      if (!value) return "";
+      if (/^https?:\/\//i.test(value)) return value;
+      return `https://${value}`;
+    }
+
+    function renderProfile(profile) {
+      const stageName = String(profile?.stage_name || "").trim();
+      const genre = String(profile?.genre || "").trim();
+      const bio = String(profile?.bio || "").trim();
+      const imageUrl = String(profile?.image_url || "").trim();
+
+      profileNameEl.textContent = stageName || "No stage name set";
+      profileGenreEl.textContent = genre || "Genre not set";
+      profileBioEl.textContent = bio || "No bio added yet.";
+
+      if (imageUrl) {
+        profileImageEl.src = imageUrl;
+      } else {
+        profileImageEl.removeAttribute("src");
+      }
+
+      const links = [
+        { label: "Instagram", value: profile?.instagram_url },
+        { label: "Spotify", value: profile?.spotify_url },
+        { label: "Website", value: profile?.website_url }
+      ]
+        .map((entry) => ({ label: entry.label, url: normalizeUrl(entry.value) }))
+        .filter((entry) => entry.url);
+
+      profileLinksEl.innerHTML = "";
+      if (!links.length) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent = "No links added yet.";
+        profileLinksEl.appendChild(empty);
+        return;
+      }
+
+      links.forEach((entry) => {
+        const link = document.createElement("a");
+        link.href = entry.url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = `${entry.label}: ${entry.url}`;
+        profileLinksEl.appendChild(link);
+      });
+    }
+
+    function renderArtistGigs(rows) {
+      artistGigListEl.innerHTML = "";
+      if (!rows?.length) {
+        artistGigListEl.innerHTML = '<article class="mini-item"><h4>No upcoming gigs</h4><div class="mini-meta">Upload gigs from the edit view.</div></article>';
+        return;
+      }
+      rows.forEach((row) => {
+        const item = document.createElement("article");
+        item.className = "mini-item";
+        item.innerHTML = `
+          <h4>${escapeHtml(row.title || "Untitled")}</h4>
+          <div class="mini-meta">${escapeHtml(formatDate(row.start_at))} · ${escapeHtml(row.type || "gig")}</div>
+          <div>${escapeHtml(row.description || "")}</div>
+        `;
+        artistGigListEl.appendChild(item);
+      });
+    }
+
+    function renderArtistComments(rows) {
+      artistCommentListEl.innerHTML = "";
+      if (!rows?.length) {
+        artistCommentListEl.innerHTML = '<article class="mini-item"><h4>No comments found</h4><div class="mini-meta">Comments on artist posts will show here.</div></article>';
+        return;
+      }
+      rows.forEach((row) => {
+        const label = String(row.author_label || "Community member");
+        const role = String(row.author_role || "fan");
+        const item = document.createElement("article");
+        item.className = "mini-item";
+        item.innerHTML = `
+          <h4>
+            <span class="comment-role ${roleClass(role)}">${escapeHtml(roleLabel(role))}</span>
+            ${escapeHtml(label)}
+          </h4>
+          <div class="mini-meta">${escapeHtml(formatDate(row.created_at))} · Post ${escapeHtml(row.post_id || "")}</div>
+          <div>${escapeHtml(row.body || "")}</div>
+        `;
+        artistCommentListEl.appendChild(item);
+      });
+    }
+
+    async function loadProfile(userId) {
+      const { data, error } = await sb
+        .from(PROFILE_TABLE)
+        .select("stage_name, genre, bio, instagram_url, spotify_url, website_url, image_url")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (error) throw error;
+      renderProfile(data || {});
+    }
+
+    async function loadUpcomingGigs() {
+      const nowIso = new Date().toISOString();
+      const { data, error } = await sb
+        .from(GIGS_TABLE)
+        .select("title, start_at, type, description")
+        .eq("created_by", currentUser.id)
+        .gte("start_at", nowIso)
+        .order("start_at", { ascending: true })
+        .limit(24);
+      if (error) {
+        renderArtistGigs([]);
+        return;
+      }
+      renderArtistGigs(data || []);
+    }
+
+    async function loadArtistComments() {
+      const { data: targetComments, error: targetErr } = await sb
+        .from(COMMENTS_TABLE)
+        .select("post_id, author_role, author_label, body, created_at")
+        .eq("post_type", "artist")
+        .eq("post_id", currentUser.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      const { data: authoredComments, error: authoredErr } = await sb
+        .from(COMMENTS_TABLE)
+        .select("post_id, author_role, author_label, body, created_at")
+        .eq("post_type", "artist")
+        .eq("user_id", currentUser.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (targetErr && authoredErr) {
+        renderArtistComments([]);
+        return;
+      }
+
+      const merged = [];
+      const seen = new Set();
+      [...(targetComments || []), ...(authoredComments || [])].forEach((row) => {
+        const key = `${row.post_id || ""}|${row.created_at || ""}|${row.body || ""}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        merged.push(row);
+      });
+
+      merged.sort((a, b) => {
+        const ta = new Date(a.created_at || 0).getTime();
+        const tb = new Date(b.created_at || 0).getTime();
+        return tb - ta;
+      });
+
+      renderArtistComments(merged.slice(0, 50));
+    }
+
+    function goLogin() {
+      window.location.href = "login.html";
+    }
+
+    async function init() {
+      const { data, error } = await sb.auth.getSession();
+      if (error || !data?.session?.user) {
+        goLogin();
+        return;
+      }
+
+      currentUser = data.session.user;
+      welcomeEl.textContent = `Signed in as ${currentUser.email || "artist"}`;
+      statusEl.textContent = "Session active.";
+      statusEl.classList.remove("error");
+
+      await Promise.all([
+        loadProfile(currentUser.id).catch(() => renderProfile({})),
+        loadUpcomingGigs(),
+        loadArtistComments()
+      ]);
+    }
+
+    signOutBtn.addEventListener("click", async () => {
+      await sb.auth.signOut();
+      goLogin();
+    });
+
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || !session) goLogin();
+    });
+
+    init().catch((err) => {
+      statusEl.textContent = err?.message || "Could not initialize profile.";
+      statusEl.classList.add("error");
+    });
+  </script>
+</body>
+</html>

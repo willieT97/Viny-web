@@ -312,10 +312,11 @@
 
     <header class="topbar">
       <div>
-        <h1>Artist Dashboard</h1>
+        <h1>Artist Dashboard (Edit View)</h1>
         <p class="muted" id="welcome-line">Signed in as ...</p>
       </div>
       <div class="actions">
+        <a class="btn" href="artist-profile.html">View Artist Page</a>
         <a class="btn" href="index.html">View Public Map</a>
         <button class="btn brand" id="sign-out" type="button">Sign Out</button>
       </div>
@@ -383,14 +384,14 @@
         <p class="intro">Upload gigs directly. Exact duplicates are blocked, and near matches (within 60 minutes) show a warning prompt.</p>
         <form id="artist-gig-form" class="profile-form">
           <div class="field">
-            <label for="artist-gig-title">Act name</label>
-            <input id="artist-gig-title" type="text" placeholder="e.g. John Doe Trio" required />
+            <label for="artist-gig-title">Act name (from profile)</label>
+            <input id="artist-gig-title" type="text" placeholder="Set your stage name in Profile Setup" readonly />
           </div>
           <div class="field">
-            <label for="artist-gig-venue">Venue</label>
-            <select id="artist-gig-venue" required>
-              <option value="">Select venue...</option>
-            </select>
+            <label for="artist-gig-venue-search">Venue</label>
+            <input id="artist-gig-venue-search" type="text" placeholder="Search venue (town)" list="artist-venue-options" required />
+            <datalist id="artist-venue-options"></datalist>
+            <input id="artist-gig-venue-id" type="hidden" />
           </div>
           <div class="row-2">
             <div class="field">
@@ -469,7 +470,9 @@
     const artistGigStatusEl = document.getElementById("artist-gig-status");
     const artistGigListEl = document.getElementById("artist-gig-list");
     const artistNotificationListEl = document.getElementById("artist-notification-list");
-    const artistGigVenueEl = document.getElementById("artist-gig-venue");
+    const artistGigVenueSearchEl = document.getElementById("artist-gig-venue-search");
+    const artistGigVenueIdEl = document.getElementById("artist-gig-venue-id");
+    const artistVenueOptionsEl = document.getElementById("artist-venue-options");
     const dupModalEl = document.getElementById("dup-modal");
     const dupExistingEl = document.getElementById("dup-existing");
     const dupNewEl = document.getElementById("dup-new");
@@ -488,6 +491,7 @@
     const NOTIFICATIONS_TABLE = "gig_notifications";
     let currentUser = null;
     let knownVenues = [];
+    let currentStageName = "";
 
     function setProfileStatus(text, tone) {
       profileStatusEl.textContent = text || "";
@@ -562,15 +566,17 @@
     }
     function readArtistGigPayload() {
       return {
-        title: document.getElementById("artist-gig-title").value.trim(),
-        venueId: artistGigVenueEl.value,
+        title: currentStageName,
+        venueId: artistGigVenueIdEl.value.trim(),
         date: document.getElementById("artist-gig-date").value,
         time: document.getElementById("artist-gig-time").value,
         type: document.getElementById("artist-gig-type").value
       };
     }
     function applyProfileToForm(profile) {
-      document.getElementById("stage-name").value = profile?.stage_name || "";
+      currentStageName = (profile?.stage_name || "").trim();
+      document.getElementById("stage-name").value = currentStageName;
+      document.getElementById("artist-gig-title").value = currentStageName;
       document.getElementById("genre").value = profile?.genre || "";
       document.getElementById("bio").value = profile?.bio || "";
       document.getElementById("instagram-url").value = profile?.instagram_url || "";
@@ -579,14 +585,30 @@
       imageUrlEl.value = profile?.image_url || "";
       updateImagePreview(profile?.image_url || "");
     }
+    function venueDisplayLabel(venue) {
+      if (!venue) return "";
+      return venue.town ? `${venue.name} (${venue.town})` : venue.name;
+    }
+    function resolveVenueIdFromSearch() {
+      const typed = String(artistGigVenueSearchEl.value || "").trim().toLowerCase();
+      if (!typed) {
+        artistGigVenueIdEl.value = "";
+        return;
+      }
+      const match = knownVenues.find((venue) => venueDisplayLabel(venue).toLowerCase() === typed);
+      artistGigVenueIdEl.value = match ? match.id : "";
+    }
     function populateVenueSelect() {
-      artistGigVenueEl.innerHTML = '<option value="">Select venue...</option>';
-      knownVenues.forEach((venue) => {
-        const option = document.createElement("option");
-        option.value = venue.id;
-        option.textContent = venue.town ? `${venue.name} (${venue.town})` : venue.name;
-        artistGigVenueEl.appendChild(option);
-      });
+      artistVenueOptionsEl.innerHTML = "";
+      knownVenues
+        .slice()
+        .sort((a, b) => venueDisplayLabel(a).localeCompare(venueDisplayLabel(b), "en", { sensitivity: "base" }))
+        .forEach((venue) => {
+          const option = document.createElement("option");
+          option.value = venueDisplayLabel(venue);
+          artistVenueOptionsEl.appendChild(option);
+        });
+      resolveVenueIdFromSearch();
     }
     function renderArtistGigs(rows) {
       artistGigListEl.innerHTML = "";
@@ -798,7 +820,7 @@
       if (!currentUser?.id) return;
       const payload = readArtistGigPayload();
       if (!payload.title || !payload.venueId || !payload.date || !payload.time) {
-        setArtistGigStatus("Act, venue, date and time are required.", "warn");
+        setArtistGigStatus("Set your stage name in Profile Setup, then choose venue, date and time.", "warn");
         return;
       }
       const venue = knownVenues.find((v) => v.id === payload.venueId);
@@ -869,6 +891,7 @@
       setArtistGigStatus("Gig uploaded.", "ok");
       artistGigForm.reset();
       document.getElementById("artist-gig-time").value = "22:00";
+      artistGigVenueIdEl.value = "";
       await Promise.all([loadArtistGigs(), loadArtistNotifications()]);
     }
     function goLogin() {
@@ -908,11 +931,15 @@
       }
     });
     imageUrlEl.addEventListener("change", () => updateImagePreview(imageUrlEl.value));
+    artistGigVenueSearchEl.addEventListener("input", resolveVenueIdFromSearch);
+    artistGigVenueSearchEl.addEventListener("change", resolveVenueIdFromSearch);
     profileForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       setProfileStatus("Saving...", "warn");
       try {
         await saveProfile();
+        currentStageName = document.getElementById("stage-name").value.trim();
+        document.getElementById("artist-gig-title").value = currentStageName;
       } catch (err) {
         setProfileStatus(err?.message || "Could not save profile.", "err");
       }
