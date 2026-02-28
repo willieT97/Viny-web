@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Viny - Login</title>
+  <style>
+    :root {
+      --bg-0: #0a0d10;
+      --bg-1: #161b20;
+      --bg-2: #1f252c;
+      --ink: #f5f7fa;
+      --muted: #a3adb8;
+      --brand: #ff3030;
+      --brand-strong: #ff1111;
+      --line: rgba(255, 255, 255, 0.12);
+      --ok: #16c784;
+      --warn: #ffb020;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Avenir Next", "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 20% 20%, rgba(255, 48, 48, 0.16), transparent 35%),
+        radial-gradient(circle at 80% 70%, rgba(72, 138, 255, 0.16), transparent 38%),
+        linear-gradient(135deg, var(--bg-0), var(--bg-1) 45%, var(--bg-2));
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+
+    .auth-shell {
+      width: min(980px, 100%);
+      display: grid;
+      grid-template-columns: 1.05fr 1fr;
+      background: rgba(0, 0, 0, 0.42);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.38);
+      backdrop-filter: blur(6px);
+    }
+
+    .panel-left {
+      padding: 38px 34px;
+      background:
+        linear-gradient(155deg, rgba(255, 48, 48, 0.16), rgba(255, 48, 48, 0.05)),
+        rgba(255, 255, 255, 0.03);
+      border-right: 1px solid var(--line);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      margin-bottom: 28px;
+      text-decoration: none;
+      color: var(--ink);
+    }
+
+    .brand img {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+    }
+
+    .panel-left h1 {
+      margin: 0 0 12px;
+      font-size: clamp(24px, 3.2vw, 36px);
+      line-height: 1.1;
+    }
+
+    .panel-left p {
+      margin: 0 0 24px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .bullet-list {
+      margin: 0;
+      padding-left: 20px;
+      color: #d8e0e8;
+    }
+
+    .bullet-list li {
+      margin: 10px 0;
+    }
+
+    .panel-right {
+      padding: 30px 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .role-tabs,
+    .mode-tabs {
+      display: flex;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 6px;
+      margin-bottom: 12px;
+    }
+
+    .mode-tabs {
+      margin-bottom: 18px;
+    }
+
+    .role-tabs button,
+    .mode-tabs button {
+      flex: 1;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--muted);
+      background: transparent;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .role-tabs button.active,
+    .mode-tabs button.active {
+      color: #fff;
+      background: linear-gradient(180deg, var(--brand), var(--brand-strong));
+      box-shadow: 0 8px 18px rgba(255, 48, 48, 0.28);
+    }
+
+    form {
+      display: grid;
+      gap: 12px;
+    }
+
+    label {
+      font-size: 13px;
+      color: #d7dde3;
+      font-weight: 600;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 13px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      font-size: 15px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: rgba(255, 48, 48, 0.8);
+      box-shadow: 0 0 0 3px rgba(255, 48, 48, 0.2);
+    }
+
+    .password-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ghost-link {
+      border: none;
+      background: none;
+      color: #9fc1ff;
+      cursor: pointer;
+      font-size: 13px;
+      text-decoration: underline;
+      padding: 0;
+    }
+
+    .auth-btn {
+      margin-top: 4px;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      background: linear-gradient(180deg, var(--brand), var(--brand-strong));
+      box-shadow: 0 10px 20px rgba(255, 48, 48, 0.28);
+    }
+
+    .auth-btn:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    .hint {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .status {
+      min-height: 20px;
+      margin-top: 8px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .status.ok { color: var(--ok); }
+    .status.warn { color: var(--warn); }
+    .status.err { color: #ff6b6b; }
+
+    .small-nav {
+      margin-top: 18px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .small-nav a {
+      color: #c8dbff;
+      text-decoration: none;
+    }
+
+    .small-nav a:hover { text-decoration: underline; }
+
+    @media (max-width: 860px) {
+      .auth-shell { grid-template-columns: 1fr; }
+      .panel-left { border-right: none; border-bottom: 1px solid var(--line); }
+    }
+  </style>
+</head>
+<body>
+  <main class="auth-shell">
+    <section class="panel-left">
+      <a class="brand" href="index.html">
+        <img src="logo.png" alt="Viny logo" />
+        <span>VINY COMMUNITY LOGIN</span>
+      </a>
+      <h1>One login for fans, artists, and venues.</h1>
+      <p>
+        Pick your account type, then log in or create an account. You will be redirected based on your role.
+      </p>
+      <ul class="bullet-list">
+        <li>Fans can follow events and discover new sessions</li>
+        <li>Artists can manage profiles and add gig details</li>
+        <li>Venues can manage listings and session schedules</li>
+      </ul>
+    </section>
+
+    <section class="panel-right">
+      <div class="role-tabs" role="tablist" aria-label="Account role">
+        <button id="role-fan" type="button" class="active" role="tab" aria-selected="true">Fan</button>
+        <button id="role-artist" type="button" role="tab" aria-selected="false">Artist</button>
+        <button id="role-venue" type="button" role="tab" aria-selected="false">Venue</button>
+      </div>
+
+      <div class="mode-tabs" role="tablist" aria-label="Authentication mode">
+        <button id="tab-login" type="button" class="active" role="tab" aria-selected="true">Log In</button>
+        <button id="tab-signup" type="button" role="tab" aria-selected="false">Create Account</button>
+      </div>
+
+      <form id="auth-form">
+        <div>
+          <label for="email">Email</label>
+          <input id="email" type="email" autocomplete="email" required />
+        </div>
+        <div>
+          <div class="password-row">
+            <label for="password">Password</label>
+            <button class="ghost-link" id="reset-password" type="button">Forgot password?</button>
+          </div>
+          <input id="password" type="password" autocomplete="current-password" minlength="6" required />
+        </div>
+        <button id="auth-submit" class="auth-btn" type="submit">Log In</button>
+      </form>
+
+      <div id="status" class="status" aria-live="polite"></div>
+      <p class="hint" id="mode-hint">Logging in as fan.</p>
+      <p class="small-nav">
+        Public map: <a href="index.html">View Map</a>
+      </p>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = window.SUPABASE_URL || "https://rxoybvdvarmlnrblffwe.supabase.co";
+    const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || "sb_publishable_YDXSqqWC-6GQXO8Pp2udgw_zOtM_m1e";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const roleButtons = {
+      fan: document.getElementById("role-fan"),
+      artist: document.getElementById("role-artist"),
+      venue: document.getElementById("role-venue")
+    };
+
+    const tabLogin = document.getElementById("tab-login");
+    const tabSignup = document.getElementById("tab-signup");
+    const authForm = document.getElementById("auth-form");
+    const emailEl = document.getElementById("email");
+    const passwordEl = document.getElementById("password");
+    const resetBtn = document.getElementById("reset-password");
+    const submitBtn = document.getElementById("auth-submit");
+    const statusEl = document.getElementById("status");
+    const hintEl = document.getElementById("mode-hint");
+
+    let mode = "login";
+    let selectedRole = "fan";
+
+    function roleRoute(role) {
+      if (role === "artist") return "artist-dashboard.html";
+      if (role === "venue") return "venue-profile.html";
+      return "fan-dashboard.html";
+    }
+
+    function setStatus(text, tone) {
+      statusEl.textContent = text || "";
+      statusEl.className = "status";
+      if (tone) statusEl.classList.add(tone);
+    }
+
+    function setRole(role) {
+      selectedRole = role;
+      Object.entries(roleButtons).forEach(([key, btn]) => {
+        const active = key === role;
+        btn.classList.toggle("active", active);
+        btn.setAttribute("aria-selected", active ? "true" : "false");
+      });
+
+      const modeText = mode === "login" ? "Logging in" : "Creating account";
+      hintEl.textContent = `${modeText} as ${selectedRole}.`;
+      setStatus("", "");
+    }
+
+    function setMode(nextMode) {
+      mode = nextMode;
+      const isLogin = mode === "login";
+      tabLogin.classList.toggle("active", isLogin);
+      tabSignup.classList.toggle("active", !isLogin);
+      tabLogin.setAttribute("aria-selected", isLogin ? "true" : "false");
+      tabSignup.setAttribute("aria-selected", isLogin ? "false" : "true");
+      submitBtn.textContent = isLogin ? "Log In" : "Create Account";
+      passwordEl.setAttribute("autocomplete", isLogin ? "current-password" : "new-password");
+      hintEl.textContent = `${isLogin ? "Logging in" : "Creating account"} as ${selectedRole}.`;
+      setStatus("", "");
+    }
+
+    async function resolveRole(user) {
+      const metadataRole = user?.user_metadata?.role;
+      if (metadataRole) return String(metadataRole).toLowerCase();
+
+      try {
+        const { data, error } = await sb
+          .from("profiles")
+          .select("role")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (!error && data?.role) return String(data.role).toLowerCase();
+      } catch (e) {}
+
+      return selectedRole;
+    }
+
+    async function handleLogin(email, password) {
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      const role = await resolveRole(data?.user);
+      setStatus("Logged in. Redirecting...", "ok");
+      window.setTimeout(() => {
+        window.location.href = roleRoute(role);
+      }, 600);
+    }
+
+    async function handleSignup(email, password) {
+      const { error } = await sb.auth.signUp({
+        email,
+        password,
+        options: { data: { role: selectedRole } }
+      });
+      if (error) throw error;
+      setStatus("Account created. Check your email for confirmation.", "ok");
+    }
+
+    async function handleReset(email) {
+      if (!email) {
+        setStatus("Enter your email first, then click reset.", "warn");
+        return;
+      }
+      const redirectTo = `${window.location.origin}${window.location.pathname}`;
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+      if (error) throw error;
+      setStatus("Password reset email sent.", "ok");
+    }
+
+    Object.entries(roleButtons).forEach(([role, btn]) => {
+      btn.addEventListener("click", () => setRole(role));
+    });
+
+    tabLogin.addEventListener("click", () => setMode("login"));
+    tabSignup.addEventListener("click", () => setMode("signup"));
+
+    resetBtn.addEventListener("click", async () => {
+      try {
+        setStatus("", "");
+        await handleReset(emailEl.value.trim());
+      } catch (err) {
+        setStatus(err?.message || "Could not send reset email.", "err");
+      }
+    });
+
+    authForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = emailEl.value.trim();
+      const password = passwordEl.value;
+      if (!email || !password) {
+        setStatus("Email and password are required.", "warn");
+        return;
+      }
+
+      submitBtn.disabled = true;
+      setStatus(mode === "login" ? "Signing in..." : "Creating account...", "warn");
+      try {
+        if (mode === "login") {
+          await handleLogin(email, password);
+        } else {
+          await handleSignup(email, password);
+        }
+      } catch (err) {
+        setStatus(err?.message || "Authentication failed.", "err");
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    setRole("fan");
+    setMode("login");
+  </script>
+</body>
+</html>

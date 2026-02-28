@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Viny Fan Dashboard</title>
+  <style>
+    :root {
+      --bg-0: #0a0d10;
+      --bg-1: #151a20;
+      --ink: #f4f7fb;
+      --muted: #9aa7b5;
+      --line: rgba(255, 255, 255, 0.12);
+      --card: rgba(255, 255, 255, 0.04);
+      --brand: #ff2e2e;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Avenir Next", "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 8%, rgba(255, 46, 46, 0.15), transparent 30%),
+        radial-gradient(circle at 92% 82%, rgba(58, 130, 255, 0.16), transparent 36%),
+        linear-gradient(145deg, var(--bg-0), var(--bg-1));
+    }
+
+    .shell {
+      width: min(1080px, 100%);
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 12px;
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: clamp(20px, 2.8vw, 28px);
+    }
+
+    .muted {
+      color: var(--muted);
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .btn:hover {
+      border-color: rgba(255, 255, 255, 0.35);
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .btn.brand {
+      border: none;
+      background: linear-gradient(180deg, #ff3a3a, var(--brand));
+    }
+
+    .status {
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.06);
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 14px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--card);
+      padding: 16px;
+    }
+
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .span-8 { grid-column: span 8; }
+    .span-4 { grid-column: span 4; }
+    .span-12 { grid-column: span 12; }
+
+    @media (max-width: 900px) {
+      .span-8, .span-4, .span-12 { grid-column: span 12; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div id="status" class="status">Checking session...</div>
+
+    <header class="topbar">
+      <div>
+        <h1>Fan Dashboard</h1>
+        <p class="muted" id="welcome-line">Signed in as ...</p>
+      </div>
+      <div class="actions">
+        <a class="btn" href="index.html">Open Map</a>
+        <button class="btn brand" id="sign-out" type="button">Sign Out</button>
+      </div>
+    </header>
+
+    <section class="grid">
+      <article class="card span-8">
+        <h2>Welcome</h2>
+        <p>
+          You are logged in as a fan. Next we can add saved venues, followed artists, and alerts for upcoming sessions.
+        </p>
+      </article>
+      <article class="card span-4">
+        <h2>Quick Access</h2>
+        <p>
+          Use the map to browse events now, then come back here for personalized recommendations.
+        </p>
+      </article>
+      <article class="card span-12">
+        <h2>Next Feature Ideas</h2>
+        <p>
+          Saved gig lists, personalized calendars, favorite venue tracking, and weekly digest emails.
+        </p>
+      </article>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = window.SUPABASE_URL || "https://rxoybvdvarmlnrblffwe.supabase.co";
+    const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || "sb_publishable_YDXSqqWC-6GQXO8Pp2udgw_zOtM_m1e";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const statusEl = document.getElementById("status");
+    const welcomeEl = document.getElementById("welcome-line");
+    const signOutBtn = document.getElementById("sign-out");
+
+    function goLogin() {
+      window.location.href = "login.html";
+    }
+
+    async function init() {
+      const { data, error } = await sb.auth.getSession();
+      if (error || !data?.session?.user) {
+        goLogin();
+        return;
+      }
+
+      const email = data.session.user.email || "fan";
+      welcomeEl.textContent = `Signed in as ${email}`;
+      statusEl.textContent = "Session active.";
+    }
+
+    signOutBtn.addEventListener("click", async () => {
+      await sb.auth.signOut();
+      goLogin();
+    });
+
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || !session) goLogin();
+    });
+
+    init().catch((err) => {
+      statusEl.textContent = err?.message || "Could not initialize dashboard.";
+    });
+  </script>
+</body>
+</html>

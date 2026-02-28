@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Viny Artist Dashboard</title>
+  <style>
+    :root {
+      --bg-0: #0a0d10;
+      --bg-1: #151a20;
+      --ink: #f4f7fb;
+      --muted: #9aa7b5;
+      --line: rgba(255, 255, 255, 0.12);
+      --card: rgba(255, 255, 255, 0.04);
+      --brand: #ff2e2e;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Avenir Next", "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 10%, rgba(255, 46, 46, 0.15), transparent 32%),
+        radial-gradient(circle at 90% 80%, rgba(58, 130, 255, 0.16), transparent 36%),
+        linear-gradient(145deg, var(--bg-0), var(--bg-1));
+    }
+
+    .shell {
+      width: min(1080px, 100%);
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 12px;
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: clamp(20px, 2.8vw, 28px);
+    }
+
+    .muted {
+      color: var(--muted);
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .btn:hover {
+      border-color: rgba(255, 255, 255, 0.35);
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .btn.brand {
+      border: none;
+      background: linear-gradient(180deg, #ff3a3a, var(--brand));
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 14px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--card);
+      padding: 16px;
+    }
+
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .card .intro {
+      margin-bottom: 14px;
+    }
+
+    .profile-form {
+      display: grid;
+      gap: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field label {
+      font-size: 13px;
+      color: #d6dce3;
+      font-weight: 600;
+    }
+
+    .field input,
+    .field textarea,
+    .field select {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      padding: 10px 12px;
+      font-size: 14px;
+      outline: none;
+      font-family: inherit;
+    }
+
+    .field textarea {
+      min-height: 110px;
+      resize: vertical;
+    }
+
+    .field input:focus,
+    .field textarea:focus,
+    .field select:focus {
+      border-color: rgba(255, 58, 58, 0.75);
+      box-shadow: 0 0 0 3px rgba(255, 46, 46, 0.2);
+    }
+    #artist-gig-status {
+      min-height: 18px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    #artist-gig-status.ok { color: #3bdd8b; }
+    #artist-gig-status.err { color: #ff9494; }
+    #artist-gig-status.warn { color: #ffcd70; }
+    .mini-list { display: grid; gap: 8px; margin-top: 10px; }
+    .mini-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.03);
+    }
+    .mini-item h4 {
+      margin: 0 0 4px;
+      font-size: 14px;
+      color: #fff;
+    }
+    .mini-meta {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .form-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .form-note {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .upload-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .upload-row input[type="file"] {
+      max-width: 100%;
+      padding: 8px;
+    }
+    .preview-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    #profile-image-preview {
+      width: 64px;
+      height: 64px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.06);
+      display: none;
+    }
+    #upload-status {
+      font-size: 13px;
+      color: var(--muted);
+      min-height: 18px;
+    }
+
+    #profile-status {
+      min-height: 18px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    #profile-status.ok { color: #3bdd8b; }
+    #profile-status.err { color: #ff9494; }
+    #profile-status.warn { color: #ffcd70; }
+
+    .span-7 { grid-column: span 7; }
+    .span-5 { grid-column: span 5; }
+    .span-12 { grid-column: span 12; }
+
+    .status {
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.06);
+      font-size: 14px;
+    }
+
+    .status.error {
+      border-color: rgba(255, 102, 102, 0.5);
+      color: #ffd1d1;
+      background: rgba(255, 72, 72, 0.16);
+    }
+    .dup-modal[hidden] { display: none; }
+    .dup-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 2500;
+      background: rgba(0, 0, 0, 0.62);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .dup-card {
+      width: min(560px, 96vw);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #11161c;
+      padding: 14px;
+    }
+    .dup-card h3 { margin: 0 0 8px; }
+    .dup-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .dup-box {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px;
+      background: rgba(255,255,255,0.03);
+      font-size: 13px;
+    }
+    .dup-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    @media (max-width: 900px) {
+      .span-7, .span-5, .span-12 {
+        grid-column: span 12;
+      }
+      .row-2 {
+        grid-template-columns: 1fr;
+      }
+      .dup-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div id="status" class="status">Checking session...</div>
+
+    <header class="topbar">
+      <div>
+        <h1>Artist Dashboard</h1>
+        <p class="muted" id="welcome-line">Signed in as ...</p>
+      </div>
+      <div class="actions">
+        <a class="btn" href="index.html">View Public Map</a>
+        <button class="btn brand" id="sign-out" type="button">Sign Out</button>
+      </div>
+    </header>
+
+    <section class="grid">
+      <article class="card span-7">
+        <h2>Next Step: Profile Setup</h2>
+        <p class="intro">Set up your artist profile details below.</p>
+        <form id="profile-form" class="profile-form">
+          <div class="row-2">
+            <div class="field">
+              <label for="stage-name">Artist / Stage Name</label>
+              <input id="stage-name" type="text" placeholder="Your artist name" required />
+            </div>
+            <div class="field">
+              <label for="genre">Genre</label>
+              <input id="genre" type="text" placeholder="Folk, Jazz, Indie..." />
+            </div>
+          </div>
+          <div class="field">
+            <label for="bio">Bio</label>
+            <textarea id="bio" placeholder="Tell listeners about your sound and story"></textarea>
+          </div>
+          <div class="row-2">
+            <div class="field">
+              <label for="instagram-url">Instagram URL</label>
+              <input id="instagram-url" type="url" placeholder="https://instagram.com/..." />
+            </div>
+            <div class="field">
+              <label for="spotify-url">Spotify URL</label>
+              <input id="spotify-url" type="url" placeholder="https://open.spotify.com/..." />
+            </div>
+          </div>
+          <div class="row-2">
+            <div class="field">
+              <label for="website-url">Website URL</label>
+              <input id="website-url" type="url" placeholder="https://yourwebsite.com" />
+            </div>
+            <div class="field">
+              <label for="image-url">Profile Image URL</label>
+              <input id="image-url" type="url" placeholder="https://.../artist-photo.jpg" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="image-file">Upload Profile Picture</label>
+            <div class="upload-row">
+              <input id="image-file" type="file" accept="image/*" />
+              <button class="btn" id="upload-image" type="button">Upload Image</button>
+            </div>
+            <div class="preview-wrap">
+              <img id="profile-image-preview" alt="Profile preview" />
+              <span id="upload-status">Upload an image to auto-fill profile image URL.</span>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn brand" id="save-profile" type="submit">Save Profile</button>
+            <span id="profile-status"></span>
+          </div>
+          <div class="form-note">Stored in Supabase table: <code>artist_profiles</code>.</div>
+        </form>
+      </article>
+      <article class="card span-5">
+        <h2>Gig Upload</h2>
+        <p class="intro">Upload gigs directly. Exact duplicates are blocked, and near matches (within 60 minutes) show a warning prompt.</p>
+        <form id="artist-gig-form" class="profile-form">
+          <div class="field">
+            <label for="artist-gig-title">Act name</label>
+            <input id="artist-gig-title" type="text" placeholder="e.g. John Doe Trio" required />
+          </div>
+          <div class="field">
+            <label for="artist-gig-venue">Venue</label>
+            <select id="artist-gig-venue" required>
+              <option value="">Select venue...</option>
+            </select>
+          </div>
+          <div class="row-2">
+            <div class="field">
+              <label for="artist-gig-date">Date</label>
+              <input id="artist-gig-date" type="date" required />
+            </div>
+            <div class="field">
+              <label for="artist-gig-time">Time</label>
+              <input id="artist-gig-time" type="time" value="22:00" required />
+            </div>
+          </div>
+          <div class="field">
+            <label for="artist-gig-type">Type</label>
+            <select id="artist-gig-type">
+              <option value="Gig">Gig</option>
+              <option value="Open Session">Open Session</option>
+              <option value="Closed Session">Closed Session</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-actions">
+            <button class="btn brand" id="save-artist-gig" type="submit">Upload Gig</button>
+            <span id="artist-gig-status"></span>
+          </div>
+        </form>
+        <div class="form-note">Stored in Supabase table: <code>gigs</code>.</div>
+        <div id="artist-gig-list" class="mini-list"></div>
+      </article>
+      <article class="card span-12">
+        <h2>Gig Alerts</h2>
+        <p class="intro">If venues upload gigs with your act, those alerts appear here.</p>
+        <div id="artist-notification-list" class="mini-list"></div>
+      </article>
+    </section>
+  </div>
+  <div id="dup-modal" class="dup-modal" hidden>
+    <div class="dup-card">
+      <h3>Possible Duplicate Found</h3>
+      <div class="dup-grid">
+        <div class="dup-box">
+          <strong>Existing gig</strong>
+          <div id="dup-existing"></div>
+        </div>
+        <div class="dup-box">
+          <strong>Your submission</strong>
+          <div id="dup-new"></div>
+        </div>
+      </div>
+      <div id="dup-note" class="mini-meta"></div>
+      <div class="dup-actions">
+        <button id="dup-cancel" class="btn" type="button">Cancel</button>
+        <button id="dup-use-existing" class="btn" type="button">Use Existing</button>
+        <button id="dup-update-existing" class="btn" type="button">Update Existing</button>
+        <button id="dup-create-anyway" class="btn brand" type="button">Create Anyway</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = window.SUPABASE_URL || "https://rxoybvdvarmlnrblffwe.supabase.co";
+    const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || "sb_publishable_YDXSqqWC-6GQXO8Pp2udgw_zOtM_m1e";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const statusEl = document.getElementById("status");
+    const welcomeEl = document.getElementById("welcome-line");
+    const signOutBtn = document.getElementById("sign-out");
+    const profileForm = document.getElementById("profile-form");
+    const profileStatusEl = document.getElementById("profile-status");
+    const uploadImageBtn = document.getElementById("upload-image");
+    const imageFileEl = document.getElementById("image-file");
+    const imageUrlEl = document.getElementById("image-url");
+    const uploadStatusEl = document.getElementById("upload-status");
+    const profileImagePreviewEl = document.getElementById("profile-image-preview");
+    const artistGigForm = document.getElementById("artist-gig-form");
+    const artistGigStatusEl = document.getElementById("artist-gig-status");
+    const artistGigListEl = document.getElementById("artist-gig-list");
+    const artistNotificationListEl = document.getElementById("artist-notification-list");
+    const artistGigVenueEl = document.getElementById("artist-gig-venue");
+    const dupModalEl = document.getElementById("dup-modal");
+    const dupExistingEl = document.getElementById("dup-existing");
+    const dupNewEl = document.getElementById("dup-new");
+    const dupNoteEl = document.getElementById("dup-note");
+    const dupCancelBtn = document.getElementById("dup-cancel");
+    const dupUseExistingBtn = document.getElementById("dup-use-existing");
+    const dupUpdateExistingBtn = document.getElementById("dup-update-existing");
+    const dupCreateAnywayBtn = document.getElementById("dup-create-anyway");
+
+    const PROFILE_TABLE = "artist_profiles";
+    const PROFILE_IMAGE_BUCKET = "artist-images";
+    const GIGS_TABLE = "gigs";
+    const VENUES_TABLE_PRIMARY = "Venues";
+    const VENUES_TABLE_FALLBACK = "venues";
+    const VENUE_PROFILE_TABLE = "venue_profiles";
+    const NOTIFICATIONS_TABLE = "gig_notifications";
+    let currentUser = null;
+    let knownVenues = [];
+
+    function setProfileStatus(text, tone) {
+      profileStatusEl.textContent = text || "";
+      profileStatusEl.className = "";
+      if (tone) profileStatusEl.classList.add(tone);
+    }
+    function setUploadStatus(text, tone) {
+      uploadStatusEl.textContent = text || "";
+      uploadStatusEl.style.color =
+        tone === "ok" ? "#3bdd8b" :
+        tone === "err" ? "#ff9494" :
+        tone === "warn" ? "#ffcd70" :
+        "";
+    }
+    function setArtistGigStatus(text, tone) {
+      artistGigStatusEl.textContent = text || "";
+      artistGigStatusEl.className = "";
+      if (tone) artistGigStatusEl.classList.add(tone);
+    }
+    function updateImagePreview(url) {
+      const src = (url || "").trim();
+      if (!src) {
+        profileImagePreviewEl.style.display = "none";
+        profileImagePreviewEl.removeAttribute("src");
+        return;
+      }
+      profileImagePreviewEl.src = src;
+      profileImagePreviewEl.style.display = "block";
+    }
+    function normalizeActName(value) {
+      return String(value || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+    }
+    function formatDate(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      if (isNaN(d)) return "";
+      return d.toLocaleString("en-IE", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+    function startAtFromDateAndTime(date, time) {
+      if (!date || !time) return "";
+      return new Date(`${date}T${time}`).toISOString();
+    }
+    function hoursOffsetIso(isoDate, hoursOffset) {
+      const d = new Date(isoDate);
+      d.setHours(d.getHours() + hoursOffset);
+      return d.toISOString();
+    }
+    function getVenueMetaFromRow(row) {
+      return {
+        id: String(row?.id || row?.ID || "").trim(),
+        name: String(row?.Venue || row?.venue_name || row?.name || "").trim(),
+        town: String(row?.town || row?.Town || "").trim(),
+        ownerId: String(row?.owner_id || "").trim()
+      };
+    }
+    function readProfilePayload() {
+      return {
+        stage_name: document.getElementById("stage-name").value.trim(),
+        genre: document.getElementById("genre").value.trim(),
+        bio: document.getElementById("bio").value.trim(),
+        instagram_url: document.getElementById("instagram-url").value.trim(),
+        spotify_url: document.getElementById("spotify-url").value.trim(),
+        website_url: document.getElementById("website-url").value.trim(),
+        image_url: imageUrlEl.value.trim()
+      };
+    }
+    function readArtistGigPayload() {
+      return {
+        title: document.getElementById("artist-gig-title").value.trim(),
+        venueId: artistGigVenueEl.value,
+        date: document.getElementById("artist-gig-date").value,
+        time: document.getElementById("artist-gig-time").value,
+        type: document.getElementById("artist-gig-type").value
+      };
+    }
+    function applyProfileToForm(profile) {
+      document.getElementById("stage-name").value = profile?.stage_name || "";
+      document.getElementById("genre").value = profile?.genre || "";
+      document.getElementById("bio").value = profile?.bio || "";
+      document.getElementById("instagram-url").value = profile?.instagram_url || "";
+      document.getElementById("spotify-url").value = profile?.spotify_url || "";
+      document.getElementById("website-url").value = profile?.website_url || "";
+      imageUrlEl.value = profile?.image_url || "";
+      updateImagePreview(profile?.image_url || "");
+    }
+    function populateVenueSelect() {
+      artistGigVenueEl.innerHTML = '<option value="">Select venue...</option>';
+      knownVenues.forEach((venue) => {
+        const option = document.createElement("option");
+        option.value = venue.id;
+        option.textContent = venue.town ? `${venue.name} (${venue.town})` : venue.name;
+        artistGigVenueEl.appendChild(option);
+      });
+    }
+    function renderArtistGigs(rows) {
+      artistGigListEl.innerHTML = "";
+      if (!rows?.length) {
+        artistGigListEl.innerHTML = '<article class="mini-item"><h4>No uploads yet</h4><div class="mini-meta">Your recently uploaded gigs will appear here.</div></article>';
+        return;
+      }
+      rows.forEach((row) => {
+        const item = document.createElement("article");
+        item.className = "mini-item";
+        item.innerHTML = `
+          <h4>${row.title || "Untitled"}</h4>
+          <div class="mini-meta">${formatDate(row.start_at)} · ${row.type || "gig"}</div>
+          <div>${row.description || ""}</div>
+        `;
+        artistGigListEl.appendChild(item);
+      });
+    }
+    function renderArtistNotifications(rows) {
+      artistNotificationListEl.innerHTML = "";
+      if (!rows?.length) {
+        artistNotificationListEl.innerHTML = '<article class="mini-item"><h4>No alerts</h4><div class="mini-meta">Venue uploads mentioning your act will appear here.</div></article>';
+        return;
+      }
+      rows.forEach((row) => {
+        const item = document.createElement("article");
+        item.className = "mini-item";
+        item.innerHTML = `
+          <h4>${row.kind === "gig_uploaded_for_artist" ? "Venue uploaded your gig" : "Gig alert"}</h4>
+          <div class="mini-meta">${formatDate(row.created_at)}</div>
+          <div>${row.message || "You have a new gig notification."}</div>
+        `;
+        artistNotificationListEl.appendChild(item);
+      });
+    }
+    function openDuplicateModal(existingGig, submission, canUpdate) {
+      return new Promise((resolve) => {
+        dupExistingEl.innerHTML = `
+          <div><strong>${existingGig.title || "Untitled"}</strong></div>
+          <div>${formatDate(existingGig.start_at)}</div>
+          <div>${existingGig.type || "gig"}</div>
+        `;
+        dupNewEl.innerHTML = `
+          <div><strong>${submission.title}</strong></div>
+          <div>${formatDate(submission.start_at)}</div>
+          <div>${submission.type}</div>
+        `;
+        dupNoteEl.textContent = canUpdate
+          ? "This looks like a near match (within 60 minutes). Choose how to proceed."
+          : "Existing gig was created by another account. You can use existing or create anyway.";
+        dupUpdateExistingBtn.disabled = !canUpdate;
+        dupModalEl.hidden = false;
+
+        const finish = (action) => {
+          dupModalEl.hidden = true;
+          dupCancelBtn.removeEventListener("click", onCancel);
+          dupUseExistingBtn.removeEventListener("click", onUseExisting);
+          dupUpdateExistingBtn.removeEventListener("click", onUpdateExisting);
+          dupCreateAnywayBtn.removeEventListener("click", onCreateAnyway);
+          resolve(action);
+        };
+        const onCancel = () => finish("cancel");
+        const onUseExisting = () => finish("use_existing");
+        const onUpdateExisting = () => finish("update_existing");
+        const onCreateAnyway = () => finish("create_anyway");
+        dupCancelBtn.addEventListener("click", onCancel);
+        dupUseExistingBtn.addEventListener("click", onUseExisting);
+        dupUpdateExistingBtn.addEventListener("click", onUpdateExisting);
+        dupCreateAnywayBtn.addEventListener("click", onCreateAnyway);
+      });
+    }
+    async function uploadProfileImage() {
+      if (!currentUser?.id) return;
+      const file = imageFileEl.files?.[0];
+      if (!file) {
+        setUploadStatus("Choose an image first.", "warn");
+        return;
+      }
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const safeExt = ext.replace(/[^a-z0-9]/g, "") || "jpg";
+      const path = `${currentUser.id}/profile-${Date.now()}.${safeExt}`;
+      setUploadStatus("Uploading image...", "warn");
+      const { error: uploadError } = await sb.storage
+        .from(PROFILE_IMAGE_BUCKET)
+        .upload(path, file, { upsert: true, contentType: file.type || "image/jpeg" });
+      if (uploadError) throw uploadError;
+      const { data } = sb.storage.from(PROFILE_IMAGE_BUCKET).getPublicUrl(path);
+      const publicUrl = data?.publicUrl || "";
+      imageUrlEl.value = publicUrl;
+      updateImagePreview(publicUrl);
+      setUploadStatus("Upload complete. Save profile to persist.", "ok");
+    }
+    async function loadProfile(userId) {
+      const { data, error } = await sb
+        .from(PROFILE_TABLE)
+        .select("stage_name, genre, bio, instagram_url, spotify_url, website_url, image_url")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (error) throw error;
+      applyProfileToForm(data || {});
+    }
+    async function loadVenueOptions() {
+      const attempts = [VENUES_TABLE_PRIMARY, VENUES_TABLE_FALLBACK];
+      for (const tableName of attempts) {
+        const { data, error } = await sb.from(tableName).select("*");
+        if (error || !Array.isArray(data)) continue;
+        knownVenues = data.map(getVenueMetaFromRow).filter((v) => v.id && v.name);
+        populateVenueSelect();
+        return;
+      }
+      knownVenues = [];
+      populateVenueSelect();
+    }
+    async function checkGigDuplicates(venueId, actName, startAtIso) {
+      const { data, error } = await sb
+        .from(GIGS_TABLE)
+        .select("id, title, start_at, type, description, created_by")
+        .eq("venue_id", venueId)
+        .gte("start_at", hoursOffsetIso(startAtIso, -1))
+        .lte("start_at", hoursOffsetIso(startAtIso, 1))
+        .limit(200);
+      if (error) throw error;
+      const normalizedTarget = normalizeActName(actName);
+      const submittedTs = new Date(startAtIso).getTime();
+      let exact = null;
+      let near = null;
+      for (const row of data || []) {
+        if (normalizeActName(row.title) !== normalizedTarget) continue;
+        const rowTs = new Date(row.start_at).getTime();
+        const diffMinutes = Math.abs(rowTs - submittedTs) / 60000;
+        if (diffMinutes <= 1) {
+          exact = row;
+          break;
+        }
+        if (diffMinutes <= 60 && !near) near = row;
+      }
+      return { exact, near };
+    }
+    async function notifyVenueForGig(venue, gigId, actName) {
+      let targetVenueUsers = [];
+      if (venue.ownerId) {
+        targetVenueUsers = [venue.ownerId];
+      } else {
+        const { data: profiles, error } = await sb
+          .from(VENUE_PROFILE_TABLE)
+          .select("user_id, venue_name, town")
+          .eq("venue_name", venue.name);
+        if (!error && profiles?.length) {
+          const targetTown = String(venue.town || "").trim().toLowerCase();
+          const townMatch = profiles.find((p) => String(p.town || "").trim().toLowerCase() === targetTown);
+          targetVenueUsers = [(townMatch || profiles[0]).user_id];
+        }
+      }
+      const rows = targetVenueUsers
+        .filter(Boolean)
+        .map((uid) => ({
+          target_user_id: uid,
+          source_user_id: currentUser.id,
+          source_role: "artist",
+          kind: "gig_uploaded_for_venue",
+          gig_id: gigId,
+          message: `An artist uploaded "${actName}" for ${venue.name}.`
+        }));
+      if (rows.length) await sb.from(NOTIFICATIONS_TABLE).insert(rows);
+    }
+    async function loadArtistGigs() {
+      const { data, error } = await sb
+        .from(GIGS_TABLE)
+        .select("title, start_at, type, description")
+        .eq("created_by", currentUser.id)
+        .order("start_at", { ascending: false })
+        .limit(12);
+      if (error) {
+        renderArtistGigs([]);
+        return;
+      }
+      renderArtistGigs(data || []);
+    }
+    async function loadArtistNotifications() {
+      const { data, error } = await sb
+        .from(NOTIFICATIONS_TABLE)
+        .select("kind, message, created_at")
+        .eq("target_user_id", currentUser.id)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) {
+        renderArtistNotifications([]);
+        return;
+      }
+      renderArtistNotifications(data || []);
+    }
+    async function saveProfile() {
+      if (!currentUser?.id) return;
+      const payload = readProfilePayload();
+      if (!payload.stage_name) {
+        setProfileStatus("Artist name is required.", "warn");
+        return;
+      }
+      const row = {
+        user_id: currentUser.id,
+        ...payload,
+        updated_at: new Date().toISOString()
+      };
+      const { error } = await sb.from(PROFILE_TABLE).upsert(row, { onConflict: "user_id" });
+      if (error) throw error;
+      setProfileStatus("Profile saved.", "ok");
+    }
+    async function saveArtistGig() {
+      if (!currentUser?.id) return;
+      const payload = readArtistGigPayload();
+      if (!payload.title || !payload.venueId || !payload.date || !payload.time) {
+        setArtistGigStatus("Act, venue, date and time are required.", "warn");
+        return;
+      }
+      const venue = knownVenues.find((v) => v.id === payload.venueId);
+      if (!venue) {
+        setArtistGigStatus("Please choose a valid venue.", "warn");
+        return;
+      }
+      const startAt = startAtFromDateAndTime(payload.date, payload.time);
+      const duplicateCheck = await checkGigDuplicates(payload.venueId, payload.title, startAt);
+      if (duplicateCheck.exact) {
+        setArtistGigStatus("Duplicate detected: this gig already exists.", "warn");
+        return;
+      }
+      if (duplicateCheck.near) {
+        const action = await openDuplicateModal(
+          duplicateCheck.near,
+          { title: payload.title, start_at: startAt, type: payload.type },
+          duplicateCheck.near.created_by === currentUser.id
+        );
+        if (action === "cancel") {
+          setArtistGigStatus("Cancelled by user (possible duplicate).", "warn");
+          return;
+        }
+        if (action === "use_existing") {
+          setArtistGigStatus("Using existing gig. No new row was created.", "ok");
+          await Promise.all([loadArtistGigs(), loadArtistNotifications()]);
+          return;
+        }
+        if (action === "update_existing") {
+          if (duplicateCheck.near.created_by !== currentUser.id) {
+            setArtistGigStatus("You can only update gigs created by your account.", "warn");
+            return;
+          }
+          const { error: updateErr } = await sb
+            .from(GIGS_TABLE)
+            .update({
+              title: payload.title,
+              start_at: startAt,
+              type: payload.type
+            })
+            .eq("id", duplicateCheck.near.id)
+            .eq("created_by", currentUser.id);
+          if (updateErr) throw updateErr;
+          setArtistGigStatus("Existing gig updated.", "ok");
+          await Promise.all([loadArtistGigs(), loadArtistNotifications()]);
+          return;
+        }
+      }
+      const descriptionBits = [venue.town, venue.name].filter(Boolean).join(" • ");
+      const { data: inserted, error } = await sb
+        .from(GIGS_TABLE)
+        .insert({
+          venue_id: payload.venueId,
+          title: payload.title,
+          start_at: startAt,
+          type: payload.type,
+          description: descriptionBits,
+          created_by: currentUser.id
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      try {
+        await notifyVenueForGig(venue, inserted?.id || null, payload.title);
+      } catch (notifyErr) {
+        console.warn("Notification insert skipped:", notifyErr?.message || notifyErr);
+      }
+      setArtistGigStatus("Gig uploaded.", "ok");
+      artistGigForm.reset();
+      document.getElementById("artist-gig-time").value = "22:00";
+      await Promise.all([loadArtistGigs(), loadArtistNotifications()]);
+    }
+    function goLogin() {
+      window.location.href = "login.html";
+    }
+    async function init() {
+      const { data, error } = await sb.auth.getSession();
+      if (error || !data?.session?.user) {
+        goLogin();
+        return;
+      }
+      currentUser = data.session.user;
+      const email = currentUser.email || "artist";
+      welcomeEl.textContent = `Signed in as ${email}`;
+      statusEl.textContent = "Session active.";
+      statusEl.classList.remove("error");
+      try {
+        await loadProfile(currentUser.id);
+      } catch (err) {
+        setProfileStatus("Could not load profile. Ensure table 'artist_profiles' exists with 'user_id' and RLS.", "err");
+      }
+      await loadVenueOptions();
+      await Promise.all([loadArtistGigs(), loadArtistNotifications()]);
+    }
+    signOutBtn.addEventListener("click", async () => {
+      await sb.auth.signOut();
+      goLogin();
+    });
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || !session) goLogin();
+    });
+    uploadImageBtn.addEventListener("click", async () => {
+      try {
+        await uploadProfileImage();
+      } catch (err) {
+        setUploadStatus(err?.message || "Image upload failed. Ensure storage bucket 'artist-images' exists and policies allow uploads.", "err");
+      }
+    });
+    imageUrlEl.addEventListener("change", () => updateImagePreview(imageUrlEl.value));
+    profileForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      setProfileStatus("Saving...", "warn");
+      try {
+        await saveProfile();
+      } catch (err) {
+        setProfileStatus(err?.message || "Could not save profile.", "err");
+      }
+    });
+    artistGigForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      setArtistGigStatus("Uploading gig...", "warn");
+      try {
+        await saveArtistGig();
+      } catch (err) {
+        setArtistGigStatus(err?.message || "Could not upload gig. Check RLS for 'gigs' and 'gig_notifications'.", "err");
+      }
+    });
+    init().catch((err) => {
+      statusEl.textContent = err?.message || "Could not initialize dashboard.";
+      statusEl.classList.add("error");
+    });
+  </script>
+</body>
+</html>
