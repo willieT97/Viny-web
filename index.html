@@ -358,6 +358,142 @@
     .comment-login a {
       color: #fff;
     }
+    .map-popup-wrap {
+      min-width: 230px;
+      color: #1b1f24;
+      font-family: sans-serif;
+    }
+    .map-popup-title {
+      margin: 0 0 8px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #111;
+      letter-spacing: 0.01em;
+    }
+    .map-popup-event-list {
+      margin: 0;
+      padding-left: 18px;
+    }
+    .map-popup-event-list li {
+      margin-bottom: 8px;
+      line-height: 1.35;
+    }
+    .map-popup-artist-link {
+      color: #a70000;
+      font-weight: 700;
+      text-decoration: none;
+      border-bottom: 1px dashed rgba(167, 0, 0, 0.45);
+    }
+    .map-popup-artist-link:hover {
+      color: #d10000;
+      border-bottom-color: rgba(209, 0, 0, 0.75);
+    }
+    .map-popup-meta {
+      color: #333;
+      font-size: 12px;
+    }
+    .map-popup-actions {
+      margin-top: 8px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .map-popup-save-btn {
+      border: 1px solid rgba(255,255,255,.2);
+      background: linear-gradient(135deg, rgba(255, 66, 66, 0.95), rgba(200, 20, 20, 0.95));
+      color: #fff;
+      border-radius: 999px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      box-shadow: 0 6px 14px rgba(255, 39, 39, 0.28);
+      transition: transform .15s ease, box-shadow .2s ease, filter .2s ease;
+    }
+    .map-popup-save-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 16px rgba(255, 39, 39, 0.35);
+      filter: brightness(1.05);
+    }
+    .map-popup-save-btn:disabled {
+      opacity: .75;
+      cursor: wait;
+      transform: none;
+    }
+    .map-popup-directions {
+      color: #1b63b7;
+      font-size: 12px;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(27, 99, 183, 0.45);
+    }
+    .map-popup-directions:hover {
+      color: #0f4d98;
+      border-bottom-color: rgba(15, 77, 152, 0.75);
+    }
+    #artist-card-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 3200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    #artist-card-overlay.open {
+      display: flex;
+    }
+    #artist-card {
+      width: min(460px, 94vw);
+      max-height: 80vh;
+      overflow: auto;
+      background: #fff;
+      color: #111;
+      border-radius: 14px;
+      box-shadow: 0 18px 32px rgba(0,0,0,.3);
+      border: 1px solid rgba(0,0,0,.1);
+      padding: 14px 16px;
+      font-family: sans-serif;
+    }
+    .artist-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    #artist-card-title {
+      margin: 0;
+      font-size: 20px;
+      color: #111;
+    }
+    #artist-card-close {
+      border: none;
+      background: transparent;
+      font-size: 22px;
+      cursor: pointer;
+      color: #444;
+      line-height: 1;
+    }
+    #artist-card-gigs {
+      margin: 10px 0 0;
+      padding-left: 18px;
+      color: #20252b;
+    }
+    #artist-card-gigs li {
+      margin-bottom: 7px;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .artist-card-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      align-items: center;
+      justify-content: space-between;
+    }
 
     @media (max-width: 980px) {
       #filter-control {
@@ -581,6 +717,20 @@
     </div>
     <div id="news-feed"><div class="news-container"></div></div>
   </div>
+  <div id="artist-card-overlay" aria-hidden="true">
+    <div id="artist-card" role="dialog" aria-modal="true" aria-labelledby="artist-card-title">
+      <div class="artist-card-head">
+        <h3 id="artist-card-title">Artist</h3>
+        <button id="artist-card-close" type="button" aria-label="Close artist details">×</button>
+      </div>
+      <div id="artist-card-subtitle" class="map-popup-meta">Upcoming gigs</div>
+      <ul id="artist-card-gigs"></ul>
+      <div class="artist-card-actions">
+        <a id="artist-card-view-profile" class="map-popup-directions" href="artist-profile.html" target="_blank" rel="noopener noreferrer">View Artist Profile</a>
+        <button id="artist-card-follow" type="button" class="map-popup-save-btn map-action-btn" data-action="follow-artist" data-busy-label="Following...">Follow Artist</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Map -->
   <div id="map"></div>
@@ -731,6 +881,9 @@ error: ${mapDebug.error || 'none'}`;
     let newsFeedKind = 'all';
     let currentSessionUser = null;
     let currentSessionRole = null;
+    let artistUpcomingByName = new Map();
+    const FAN_SAVED_VENUES_TABLE = 'fan_saved_venues';
+    const FAN_FOLLOWED_ARTISTS_TABLE = 'fan_followed_artists';
 
     /**********************
      * UI HELPERS
@@ -999,6 +1152,28 @@ error: ${mapDebug.error || 'none'}`;
       if (isNaN(d)) return '';
       return d.toLocaleString('en-IE', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
+    function normalizeSimple(value){
+      return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    }
+    function artistKey(value){
+      return normalizeSimple(String(value || '').replace(/[^a-z0-9 ]/gi, ' '));
+    }
+    function isTableMissingError(err){
+      const message = String(err?.message || '').toLowerCase();
+      return err?.code === '42P01' || message.includes('does not exist');
+    }
+    function resetArtistUpcomingCache(){
+      artistUpcomingByName = new Map();
+    }
+    function addArtistUpcomingGig(artistName, gig){
+      const key = artistKey(artistName);
+      if (!key) return;
+      if (!artistUpcomingByName.has(key)) artistUpcomingByName.set(key, []);
+      const bucket = artistUpcomingByName.get(key);
+      const dedupeKey = `${gig.venueName}__${gig.dateLabel}__${gig.type || ''}`;
+      if (bucket.some((row) => row.dedupeKey === dedupeKey)) return;
+      bucket.push({ ...gig, dedupeKey });
+    }
     async function refreshSessionCache(){
       const { data } = await sb.auth.getSession();
       currentSessionUser = data?.session?.user || null;
@@ -1021,6 +1196,113 @@ error: ${mapDebug.error || 'none'}`;
       } else {
         currentSessionRole = 'fan';
       }
+    }
+    async function ensureFanSession(){
+      await refreshSessionCache();
+      if (!currentSessionUser?.id) {
+        alert('Please log in as a fan first.');
+        window.location.href = 'login.html';
+        return null;
+      }
+      if (currentSessionRole !== 'fan') {
+        alert('This action is currently available for fan accounts.');
+        return null;
+      }
+      return currentSessionUser;
+    }
+    async function saveVenueFromMapAction(payload){
+      const sessionUser = await ensureFanSession();
+      if (!sessionUser) return;
+      const venueId = String(payload?.venueId || '').trim();
+      const venueName = String(payload?.venueName || '').trim();
+      const town = String(payload?.town || '').trim();
+      if (!venueId || !venueName) {
+        alert('Venue details were missing. Please try another marker.');
+        return;
+      }
+      const { error } = await sb.from(FAN_SAVED_VENUES_TABLE).upsert({
+        fan_user_id: sessionUser.id,
+        venue_id: venueId,
+        venue_name: venueName,
+        town: town || null
+      }, {
+        onConflict: 'fan_user_id,venue_id',
+        ignoreDuplicates: true
+      });
+      if (error) throw error;
+      alert(`Saved venue: ${venueName}`);
+    }
+    async function resolveArtistProfileForFollow(stageName){
+      const typed = normalizeSimple(stageName);
+      if (!typed) return null;
+      const { data, error } = await sb
+        .from('artist_profiles')
+        .select('user_id, stage_name, genre')
+        .not('stage_name', 'is', null)
+        .ilike('stage_name', stageName)
+        .limit(10);
+      if (error) throw error;
+      const rows = (data || []).filter((row) => row?.user_id && row?.stage_name);
+      if (!rows.length) return null;
+      const exact = rows.find((row) => normalizeSimple(row.stage_name) === typed);
+      return exact || rows[0];
+    }
+    async function followArtistFromMapAction(stageName){
+      const sessionUser = await ensureFanSession();
+      if (!sessionUser) return;
+      const target = await resolveArtistProfileForFollow(stageName);
+      if (!target) {
+        alert('Could not find that artist profile yet.');
+        return;
+      }
+      const { error } = await sb.from(FAN_FOLLOWED_ARTISTS_TABLE).upsert({
+        fan_user_id: sessionUser.id,
+        artist_user_id: target.user_id,
+        stage_name: target.stage_name,
+        genre: target.genre || null
+      }, {
+        onConflict: 'fan_user_id,artist_user_id',
+        ignoreDuplicates: true
+      });
+      if (error) throw error;
+      alert(`Following artist: ${target.stage_name}`);
+    }
+    function renderArtistCardGigs(artistName){
+      const gigsEl = document.getElementById('artist-card-gigs');
+      const key = artistKey(artistName);
+      const rows = (artistUpcomingByName.get(key) || [])
+        .slice()
+        .sort((a, b) => a.eventTs - b.eventTs)
+        .slice(0, 10);
+      gigsEl.innerHTML = '';
+      if (!rows.length) {
+        gigsEl.innerHTML = '<li>No upcoming gigs in this filter range.</li>';
+        return;
+      }
+      rows.forEach((row) => {
+        const li = document.createElement('li');
+        li.textContent = `${row.dateLabel}${row.timeLabel ? ' at ' + row.timeLabel : ''} • ${row.venueName}${row.type ? ' • ' + row.type : ''}`;
+        gigsEl.appendChild(li);
+      });
+    }
+    function openArtistCard(artistName){
+      const safeName = String(artistName || '').trim();
+      if (!safeName) return;
+      const overlay = document.getElementById('artist-card-overlay');
+      const title = document.getElementById('artist-card-title');
+      const followBtn = document.getElementById('artist-card-follow');
+      const viewProfileLink = document.getElementById('artist-card-view-profile');
+      title.textContent = safeName;
+      followBtn.dataset.artistName = encodeURIComponent(safeName);
+      viewProfileLink.href = `artist-profile.html?stage_name=${encodeURIComponent(safeName)}`;
+      renderArtistCardGigs(safeName);
+      overlay.classList.add('open');
+      overlay.setAttribute('aria-hidden', 'false');
+    }
+    function closeArtistCard(){
+      const overlay = document.getElementById('artist-card-overlay');
+      overlay.classList.remove('open');
+      overlay.setAttribute('aria-hidden', 'true');
     }
     function parseSheetDate(s){
       if (!s) return new Date('invalid');
@@ -1144,10 +1426,21 @@ error: ${mapDebug.error || 'none'}`;
         for (const v of rows) {
           const resolved = await resolveVenueCoords(v);
           if (!resolved || !inIreland(resolved.lat, resolved.lng)) continue;
+          const venueId = (v.ID || '').trim();
+          const venueName = (v.Venue || '').trim() || venueId;
+          const venueTown = (v.Town || '').trim();
           const marker = L.marker([resolved.lat, resolved.lng], {
             icon: createVenueIcon(false, 0),
             zIndexOffset: 0
-          }).bindPopup(`<div style="font-size:18px;font-weight:bold;margin-bottom:8px;">${(v.Venue || '').trim() || (v.ID || '').trim()}</div><span>No upcoming events in this time range.</span>`);
+          }).bindPopup(`
+            <div class="map-popup-wrap">
+              <div class="map-popup-title">${escapeHtml(venueName)}</div>
+              <div class="map-popup-meta">No upcoming events in this time range.</div>
+              <div class="map-popup-actions">
+                <button type="button" class="map-popup-save-btn map-action-btn" data-action="save-venue" data-busy-label="Saving..." data-venue-id="${escapeHtml(venueId)}" data-venue-name="${escapeHtml(venueName)}" data-venue-town="${escapeHtml(venueTown)}">Save Venue</button>
+              </div>
+            </div>
+          `);
           markers.addLayer(marker);
           added += 1;
         }
@@ -1484,6 +1777,7 @@ error: ${mapDebug.error || 'none'}`;
           venueById.set(id, {
             id,
             name: (v.Venue || '').trim() || id,
+            town: (v.Town || '').trim(),
             eircode: (v.Eircode || '').trim(),
             mapsUrl: (v.Maps || '').trim(),
             lat: resolved.lat,
@@ -1513,6 +1807,7 @@ error: ${mapDebug.error || 'none'}`;
         }
 
         // Group gigs by venue id & filter by date/type window
+        resetArtistUpcomingCache();
         const gigsByVenue = new Map();
         for (const g of gigsRaw) {
           const venueId = (g.Venue || '').trim();
@@ -1532,6 +1827,13 @@ error: ${mapDebug.error || 'none'}`;
             time: (g.Time || '').trim(),
             eventDate
           };
+          addArtistUpcomingGig(event.name, {
+            venueName: venue.name || venueId,
+            dateLabel: formatDateToDDMMYYYY(eventDate),
+            timeLabel: event.time || '',
+            type: event.type || '',
+            eventTs: eventDate.getTime()
+          });
           if (!gigsByVenue.has(venueId)) gigsByVenue.set(venueId, []);
           gigsByVenue.get(venueId).push(event);
         }
@@ -1548,22 +1850,27 @@ error: ${mapDebug.error || 'none'}`;
           }
           const icon = createVenueIcon(isActive, count);
 
-          let popupHtml = `<div style="font-size:18px;font-weight:bold;margin-bottom:8px;">${venue.name}</div>`;
+          let popupHtml = `<div class="map-popup-wrap"><div class="map-popup-title">${escapeHtml(venue.name)}</div>`;
           if (count === 0) {
-            popupHtml += `<span>No upcoming events in this time range.</span>`;
+            popupHtml += `<div class="map-popup-meta">No upcoming events in this time range.</div>`;
           } else {
-            popupHtml += `<ul style="padding-left:18px;margin:0;">` +
+            popupHtml += `<ul class="map-popup-event-list">` +
               events.map(ev => `
-                <li><strong>${ev.name}</strong><br>
-                  Type: (${ev.type})<br>
-                  Date: ${formatDateToDDMMYYYY(ev.eventDate)}${ev.time ? ' at ' + ev.time : ''}</li>`
+                <li>
+                  <a href="#" class="map-popup-artist-link map-action-btn" data-action="open-artist-card" data-artist-name="${encodeURIComponent(ev.name)}">${escapeHtml(ev.name)}</a><br>
+                  <span class="map-popup-meta">Type: ${escapeHtml(ev.type)}<br>
+                  Date: ${formatDateToDDMMYYYY(ev.eventDate)}${ev.time ? ' at ' + escapeHtml(ev.time) : ''}</span>
+                </li>`
               ).join('') + `</ul>`;
           }
 
           const link = venue.mapsUrl
             ? venue.mapsUrl
             : `https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`;
-          popupHtml += `<div style="margin-top:6px;"><a href="${link}" target="_blank">Get Directions</a></div>`;
+          popupHtml += `<div class="map-popup-actions">
+            <button type="button" class="map-popup-save-btn map-action-btn" data-action="save-venue" data-busy-label="Saving..." data-venue-id="${escapeHtml(venue.id)}" data-venue-name="${escapeHtml(venue.name)}" data-venue-town="${escapeHtml(venue.town || '')}">Save Venue</button>
+          </div>`;
+          popupHtml += `<div class="map-popup-actions"><a class="map-popup-directions" href="${link}" target="_blank">Get Directions</a></div></div>`;
 
           // Keep active venues visually on top of inactive markers.
           const marker = L.marker([venue.lat, venue.lng], {
@@ -1801,6 +2108,10 @@ error: ${mapDebug.error || 'none'}`;
 
     openNewsBtn.addEventListener('click', () => { newsSidebar.classList.add('open'); openNewsBtn.classList.add('shifted'); });
     closeNewsBtn.addEventListener('click', () => { newsSidebar.classList.remove('open'); openNewsBtn.classList.remove('shifted'); });
+    document.getElementById('artist-card-close').addEventListener('click', closeArtistCard);
+    document.getElementById('artist-card-overlay').addEventListener('click', (e) => {
+      if (e.target.id === 'artist-card-overlay') closeArtistCard();
+    });
     newsFilterBtns.forEach((btn) => {
       btn.addEventListener('click', async () => {
         newsFeedKind = btn.dataset.feedKind || 'all';
@@ -1812,6 +2123,43 @@ error: ${mapDebug.error || 'none'}`;
     sb.auth.onAuthStateChange(async () => {
       await refreshSessionCache();
       await loadNews();
+    });
+
+    document.addEventListener('click', async (e) => {
+      const actionBtn = e.target?.closest?.('.map-action-btn');
+      if (!actionBtn) return;
+      e.preventDefault();
+      const action = String(actionBtn.dataset.action || '').trim();
+      const previousText = actionBtn.textContent;
+      const isButton = actionBtn.tagName === 'BUTTON';
+      if (isButton) actionBtn.disabled = true;
+      if (actionBtn.dataset.busyLabel) actionBtn.textContent = actionBtn.dataset.busyLabel;
+      try {
+        if (action === 'save-venue') {
+          await saveVenueFromMapAction({
+            venueId: actionBtn.dataset.venueId,
+            venueName: actionBtn.dataset.venueName,
+            town: actionBtn.dataset.venueTown
+          });
+        } else if (action === 'open-artist-card') {
+          const encodedArtist = String(actionBtn.dataset.artistName || '');
+          openArtistCard(decodeURIComponent(encodedArtist));
+        } else if (action === 'follow-artist') {
+          const encodedArtist = String(actionBtn.dataset.artistName || '');
+          const stageName = decodeURIComponent(encodedArtist);
+          await followArtistFromMapAction(stageName);
+          closeArtistCard();
+        }
+      } catch (err) {
+        if (isTableMissingError(err)) {
+          alert('Fan feature tables are missing. Run section 5 in supabase-gig-workflow.sql.');
+        } else {
+          alert(err?.message || 'Could not complete action.');
+        }
+      } finally {
+        if (isButton) actionBtn.disabled = false;
+        actionBtn.textContent = previousText;
+      }
     });
 
     document.querySelector('.news-container').addEventListener('submit', async (e) => {

@@ -161,3 +161,76 @@ on public.post_comments
 for delete
 to authenticated
 using (auth.uid() = user_id);
+
+-- 5) Fan dashboard features: saved venues + followed artists
+create table if not exists public.fan_saved_venues (
+  id uuid primary key default gen_random_uuid(),
+  fan_user_id uuid not null references auth.users(id) on delete cascade,
+  venue_id text not null,
+  venue_name text not null,
+  town text,
+  created_at timestamptz not null default now(),
+  unique (fan_user_id, venue_id)
+);
+
+create index if not exists fan_saved_venues_user_created_idx
+on public.fan_saved_venues (fan_user_id, created_at desc);
+
+alter table public.fan_saved_venues enable row level security;
+
+drop policy if exists fan_saved_venues_select_own on public.fan_saved_venues;
+create policy fan_saved_venues_select_own
+on public.fan_saved_venues
+for select
+to authenticated
+using (auth.uid() = fan_user_id);
+
+drop policy if exists fan_saved_venues_insert_own on public.fan_saved_venues;
+create policy fan_saved_venues_insert_own
+on public.fan_saved_venues
+for insert
+to authenticated
+with check (auth.uid() = fan_user_id);
+
+drop policy if exists fan_saved_venues_delete_own on public.fan_saved_venues;
+create policy fan_saved_venues_delete_own
+on public.fan_saved_venues
+for delete
+to authenticated
+using (auth.uid() = fan_user_id);
+
+create table if not exists public.fan_followed_artists (
+  id uuid primary key default gen_random_uuid(),
+  fan_user_id uuid not null references auth.users(id) on delete cascade,
+  artist_user_id uuid not null references auth.users(id) on delete cascade,
+  stage_name text not null,
+  genre text,
+  created_at timestamptz not null default now(),
+  unique (fan_user_id, artist_user_id)
+);
+
+create index if not exists fan_followed_artists_user_created_idx
+on public.fan_followed_artists (fan_user_id, created_at desc);
+
+alter table public.fan_followed_artists enable row level security;
+
+drop policy if exists fan_followed_artists_select_own on public.fan_followed_artists;
+create policy fan_followed_artists_select_own
+on public.fan_followed_artists
+for select
+to authenticated
+using (auth.uid() = fan_user_id);
+
+drop policy if exists fan_followed_artists_insert_own on public.fan_followed_artists;
+create policy fan_followed_artists_insert_own
+on public.fan_followed_artists
+for insert
+to authenticated
+with check (auth.uid() = fan_user_id);
+
+drop policy if exists fan_followed_artists_delete_own on public.fan_followed_artists;
+create policy fan_followed_artists_delete_own
+on public.fan_followed_artists
+for delete
+to authenticated
+using (auth.uid() = fan_user_id);

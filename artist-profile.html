@@ -237,7 +237,7 @@
         <p class="muted" id="welcome-line">Signed in as ...</p>
       </div>
       <div class="actions">
-        <a class="btn" href="artist-dashboard.html">Edit Profile</a>
+        <a class="btn" id="edit-profile-link" href="artist-dashboard.html">Edit Profile</a>
         <a class="btn" href="index.html">View Public Map</a>
         <button class="btn brand" id="sign-out" type="button">Sign Out</button>
       </div>
@@ -285,6 +285,7 @@
     const statusEl = document.getElementById("status");
     const welcomeEl = document.getElementById("welcome-line");
     const signOutBtn = document.getElementById("sign-out");
+    const editProfileLinkEl = document.getElementById("edit-profile-link");
     const profileImageEl = document.getElementById("profile-image");
     const profileNameEl = document.getElementById("profile-name");
     const profileGenreEl = document.getElementById("profile-genre");
@@ -292,8 +293,12 @@
     const profileLinksEl = document.getElementById("profile-links");
     const artistGigListEl = document.getElementById("artist-gig-list");
     const artistCommentListEl = document.getElementById("artist-comment-list");
+    const queryParams = new URLSearchParams(window.location.search);
+    const queryStageName = String(queryParams.get("stage_name") || "").trim();
 
     let currentUser = null;
+    let viewedArtistUserId = "";
+    let viewedArtistStageName = "";
 
     function roleClass(role) {
       const value = String(role || "fan").toLowerCase();
@@ -336,6 +341,20 @@
       if (!value) return "";
       if (/^https?:\/\//i.test(value)) return value;
       return `https://${value}`;
+    }
+
+    async function resolveArtistUserIdFromStage(stageName) {
+      if (!stageName) return "";
+      const { data, error } = await sb
+        .from(PROFILE_TABLE)
+        .select("user_id, stage_name")
+        .ilike("stage_name", stageName)
+        .limit(10);
+      if (error) throw error;
+      const target = String(stageName).trim().toLowerCase();
+      const rows = data || [];
+      const exact = rows.find((row) => String(row?.stage_name || "").trim().toLowerCase() === target);
+      return String((exact || rows[0])?.user_id || "").trim();
     }
 
     function renderProfile(profile) {
@@ -430,22 +449,47 @@
         .maybeSingle();
       if (error) throw error;
       renderProfile(data || {});
+      return data || {};
     }
 
     async function loadUpcomingGigs() {
       const nowIso = new Date().toISOString();
-      const { data, error } = await sb
+      const artistName = String(viewedArtistStageName || "").trim();
+      const runCreatedBy = sb
         .from(GIGS_TABLE)
         .select("title, start_at, type, description")
-        .eq("created_by", currentUser.id)
+        .eq("created_by", viewedArtistUserId)
         .gte("start_at", nowIso)
         .order("start_at", { ascending: true })
         .limit(24);
-      if (error) {
+      const runByTitle = artistName
+        ? sb
+            .from(GIGS_TABLE)
+            .select("title, start_at, type, description")
+            .ilike("title", artistName)
+            .gte("start_at", nowIso)
+            .order("start_at", { ascending: true })
+            .limit(24)
+        : Promise.resolve({ data: [], error: null });
+
+      const [byCreator, byTitle] = await Promise.all([runCreatedBy, runByTitle]);
+      const combined = [];
+      const seen = new Set();
+      [byCreator.data || [], byTitle.data || []].forEach((rows) => {
+        rows.forEach((row) => {
+          const key = `${row.title || ""}|${row.start_at || ""}|${row.type || ""}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+          combined.push(row);
+        });
+      });
+
+      if (byCreator.error && byTitle.error) {
         renderArtistGigs([]);
         return;
       }
-      renderArtistGigs(data || []);
+      combined.sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+      renderArtistGigs(combined.slice(0, 24));
     }
 
     async function loadArtistComments() {
@@ -453,7 +497,7 @@
         .from(COMMENTS_TABLE)
         .select("post_id, author_role, author_label, body, created_at")
         .eq("post_type", "artist")
-        .eq("post_id", currentUser.id)
+        .eq("post_id", viewedArtistUserId)
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -461,7 +505,7 @@
         .from(COMMENTS_TABLE)
         .select("post_id, author_role, author_label, body, created_at")
         .eq("post_type", "artist")
-        .eq("user_id", currentUser.id)
+        .eq("user_id", viewedArtistUserId)
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -504,8 +548,27 @@
       statusEl.textContent = "Session active.";
       statusEl.classList.remove("error");
 
+      if (queryStageName) {
+        const targetUserId = await resolveArtistUserIdFromStage(queryStageName);
+        if (targetUserId) {
+          viewedArtistUserId = targetUserId;
+          viewedArtistStageName = queryStageName;
+        } else {
+          viewedArtistUserId = currentUser.id;
+        }
+      } else {
+        viewedArtistUserId = currentUser.id;
+      }
+      if (viewedArtistUserId !== currentUser.id) {
+        editProfileLinkEl.style.display = "none";
+      }
+
       await Promise.all([
-        loadProfile(currentUser.id).catch(() => renderProfile({})),
+        loadProfile(viewedArtistUserId)
+          .then((profile) => {
+            viewedArtistStageName = String(profile?.stage_name || viewedArtistStageName || "").trim();
+          })
+          .catch(() => renderProfile({})),
         loadUpcomingGigs(),
         loadArtistComments()
       ]);

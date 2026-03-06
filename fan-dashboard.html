@@ -119,12 +119,87 @@
       line-height: 1.45;
     }
 
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.07);
+      color: #fff;
+      border-radius: 10px;
+      padding: 10px 12px;
+      outline: none;
+      font-size: 14px;
+    }
+
+    input[type="text"]:focus {
+      border-color: rgba(255, 255, 255, 0.35);
+    }
+
+    .mini-list {
+      margin-top: 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .mini-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .mini-item h4 {
+      margin: 0 0 6px;
+      font-size: 15px;
+    }
+
+    .mini-meta {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .item-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .pill {
+      display: inline-block;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 12px;
+      color: #f0f3f8;
+    }
+
+    .hint {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
     .span-8 { grid-column: span 8; }
     .span-4 { grid-column: span 4; }
+    .span-6 { grid-column: span 6; }
     .span-12 { grid-column: span 12; }
 
     @media (max-width: 900px) {
-      .span-8, .span-4, .span-12 { grid-column: span 12; }
+      .span-8, .span-6, .span-4, .span-12 { grid-column: span 12; }
     }
   </style>
 </head>
@@ -147,7 +222,7 @@
       <article class="card span-8">
         <h2>Welcome</h2>
         <p>
-          You are logged in as a fan. Next we can add saved venues, followed artists, and alerts for upcoming sessions.
+          Save venues, follow artists, and get upcoming session alerts from your picks.
         </p>
       </article>
       <article class="card span-4">
@@ -156,10 +231,35 @@
           Use the map to browse events now, then come back here for personalized recommendations.
         </p>
       </article>
+
+      <article class="card span-6">
+        <h2>Saved Venues</h2>
+        <p>Track venues you care about and include them in alerts.</p>
+        <div class="toolbar">
+          <input id="venue-search" type="text" list="venue-options" placeholder="Search venue (town)" />
+          <datalist id="venue-options"></datalist>
+          <button class="btn brand" id="save-venue-btn" type="button">Save Venue</button>
+        </div>
+        <div id="saved-venues-list" class="mini-list"></div>
+      </article>
+
+      <article class="card span-6">
+        <h2>Followed Artists</h2>
+        <p>Follow artists to see their upcoming sessions first.</p>
+        <div class="toolbar">
+          <input id="artist-search" type="text" list="artist-options" placeholder="Search artist" />
+          <datalist id="artist-options"></datalist>
+          <button class="btn brand" id="follow-artist-btn" type="button">Follow Artist</button>
+        </div>
+        <div id="followed-artists-list" class="mini-list"></div>
+      </article>
+
       <article class="card span-12">
-        <h2>Next Feature Ideas</h2>
-        <p>
-          Saved gig lists, personalized calendars, favorite venue tracking, and weekly digest emails.
+        <h2>Upcoming Session Alerts</h2>
+        <p>Next 45 days, based on your saved venues and followed artists.</p>
+        <div id="upcoming-alerts-list" class="mini-list"></div>
+        <p id="setup-hint" class="hint" style="display:none;">
+          Setup needed: run the SQL in <code>supabase-gig-workflow.sql</code> section 5 to create fan tables and RLS policies.
         </p>
       </article>
     </section>
@@ -174,9 +274,356 @@
     const statusEl = document.getElementById("status");
     const welcomeEl = document.getElementById("welcome-line");
     const signOutBtn = document.getElementById("sign-out");
+    const setupHintEl = document.getElementById("setup-hint");
+
+    const venueSearchEl = document.getElementById("venue-search");
+    const venueOptionsEl = document.getElementById("venue-options");
+    const saveVenueBtn = document.getElementById("save-venue-btn");
+    const savedVenuesListEl = document.getElementById("saved-venues-list");
+
+    const artistSearchEl = document.getElementById("artist-search");
+    const artistOptionsEl = document.getElementById("artist-options");
+    const followArtistBtn = document.getElementById("follow-artist-btn");
+    const followedArtistsListEl = document.getElementById("followed-artists-list");
+
+    const upcomingAlertsListEl = document.getElementById("upcoming-alerts-list");
+
+    const VENUES_TABLE_PRIMARY = "Venues";
+    const VENUES_TABLE_FALLBACK = "venues";
+    const ARTIST_PROFILE_TABLE = "artist_profiles";
+    const GIGS_TABLE = "gigs";
+    const FAN_SAVED_VENUES_TABLE = "fan_saved_venues";
+    const FAN_FOLLOWED_ARTISTS_TABLE = "fan_followed_artists";
+
+    let currentUser = null;
+    let knownVenues = [];
+    let knownArtists = [];
+    let savedVenues = [];
+    let followedArtists = [];
 
     function goLogin() {
       window.location.href = "login.html";
+    }
+
+    function isTableMissingError(err) {
+      const message = String(err?.message || "").toLowerCase();
+      return err?.code === "42P01" || message.includes("does not exist");
+    }
+
+    function formatDate(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return "";
+      return d.toLocaleString("en-IE", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function normalize(value) {
+      return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+    }
+
+    function normalizeActName(value) {
+      return String(value || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function venueDisplayLabel(venue) {
+      return venue?.town ? `${venue.name} (${venue.town})` : venue.name;
+    }
+
+    function getVenueMetaFromRow(row) {
+      return {
+        id: String(row?.id || row?.ID || "").trim(),
+        name: String(row?.venue_name || row?.Venue || row?.name || "").trim(),
+        town: String(row?.town || row?.Town || "").trim()
+      };
+    }
+
+    function renderSavedVenues(rows) {
+      savedVenuesListEl.innerHTML = "";
+      if (!rows?.length) {
+        savedVenuesListEl.innerHTML = '<article class="mini-item"><h4>No saved venues yet</h4><div class="mini-meta">Add one to start venue alerts.</div></article>';
+        return;
+      }
+      rows.forEach((row) => {
+        const item = document.createElement("article");
+        item.className = "mini-item";
+        item.innerHTML = `
+          <h4>${escapeHtml(row.venue_name || "Venue")}</h4>
+          <div class="mini-meta">${escapeHtml(row.town || "Town not set")}</div>
+          <div class="item-actions">
+            <button class="btn" data-remove-saved-venue="${row.id}" type="button">Remove</button>
+          </div>
+        `;
+        savedVenuesListEl.appendChild(item);
+      });
+    }
+
+    function renderFollowedArtists(rows) {
+      followedArtistsListEl.innerHTML = "";
+      if (!rows?.length) {
+        followedArtistsListEl.innerHTML = '<article class="mini-item"><h4>No followed artists yet</h4><div class="mini-meta">Follow one to get artist-based alerts.</div></article>';
+        return;
+      }
+      rows.forEach((row) => {
+        const item = document.createElement("article");
+        item.className = "mini-item";
+        item.innerHTML = `
+          <h4>${escapeHtml(row.stage_name || "Artist")}</h4>
+          <div class="mini-meta">${escapeHtml(row.genre || "Genre not set")}</div>
+          <div class="item-actions">
+            <button class="btn" data-remove-followed-artist="${row.id}" type="button">Unfollow</button>
+          </div>
+        `;
+        followedArtistsListEl.appendChild(item);
+      });
+    }
+
+    function renderUpcomingAlerts(rows) {
+      upcomingAlertsListEl.innerHTML = "";
+      if (!rows?.length) {
+        upcomingAlertsListEl.innerHTML = '<article class="mini-item"><h4>No upcoming matches</h4><div class="mini-meta">Alerts appear when gigs match your saved venues or followed artists.</div></article>';
+        return;
+      }
+      rows.forEach((row) => {
+        const item = document.createElement("article");
+        item.className = "mini-item";
+        item.innerHTML = `
+          <h4>${escapeHtml(row.title || "Untitled")}</h4>
+          <div class="mini-meta">${escapeHtml(formatDate(row.start_at))} · ${escapeHtml(row.venueName || "Venue")} · ${escapeHtml(row.type || "Gig")}</div>
+          <div>${escapeHtml(row.description || "")}</div>
+          <div class="pill-row">${row.reasons.map((reason) => `<span class="pill">${escapeHtml(reason)}</span>`).join("")}</div>
+        `;
+        upcomingAlertsListEl.appendChild(item);
+      });
+    }
+
+    async function loadVenueOptions() {
+      const attempts = [VENUES_TABLE_PRIMARY, VENUES_TABLE_FALLBACK];
+      for (const tableName of attempts) {
+        const { data, error } = await sb.from(tableName).select("*");
+        if (error || !Array.isArray(data)) continue;
+        knownVenues = data.map(getVenueMetaFromRow).filter((v) => v.id && v.name);
+        venueOptionsEl.innerHTML = "";
+        knownVenues
+          .slice()
+          .sort((a, b) => venueDisplayLabel(a).localeCompare(venueDisplayLabel(b), "en", { sensitivity: "base" }))
+          .forEach((venue) => {
+            const option = document.createElement("option");
+            option.value = venueDisplayLabel(venue);
+            venueOptionsEl.appendChild(option);
+          });
+        return;
+      }
+      knownVenues = [];
+      venueOptionsEl.innerHTML = "";
+    }
+
+    async function loadArtistOptions() {
+      const { data, error } = await sb
+        .from(ARTIST_PROFILE_TABLE)
+        .select("user_id, stage_name, genre")
+        .not("stage_name", "is", null);
+      if (error) {
+        knownArtists = [];
+        artistOptionsEl.innerHTML = "";
+        return;
+      }
+      knownArtists = (data || [])
+        .map((row) => ({
+          userId: String(row?.user_id || "").trim(),
+          stageName: String(row?.stage_name || "").trim(),
+          genre: String(row?.genre || "").trim()
+        }))
+        .filter((row) => row.userId && row.stageName);
+
+      artistOptionsEl.innerHTML = "";
+      knownArtists
+        .slice()
+        .sort((a, b) => a.stageName.localeCompare(b.stageName, "en", { sensitivity: "base" }))
+        .forEach((artist) => {
+          const option = document.createElement("option");
+          option.value = artist.stageName;
+          artistOptionsEl.appendChild(option);
+        });
+    }
+
+    async function loadSavedVenues() {
+      const { data, error } = await sb
+        .from(FAN_SAVED_VENUES_TABLE)
+        .select("id, fan_user_id, venue_id, venue_name, town, created_at")
+        .eq("fan_user_id", currentUser.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      savedVenues = data || [];
+      renderSavedVenues(savedVenues);
+    }
+
+    async function loadFollowedArtists() {
+      const { data, error } = await sb
+        .from(FAN_FOLLOWED_ARTISTS_TABLE)
+        .select("id, fan_user_id, artist_user_id, stage_name, genre, created_at")
+        .eq("fan_user_id", currentUser.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      followedArtists = data || [];
+      renderFollowedArtists(followedArtists);
+    }
+
+    async function loadUpcomingAlerts() {
+      const hasSavedVenues = savedVenues.length > 0;
+      const hasFollowedArtists = followedArtists.length > 0;
+      if (!hasSavedVenues && !hasFollowedArtists) {
+        renderUpcomingAlerts([]);
+        return;
+      }
+
+      const now = new Date();
+      const horizon = new Date(now.getTime() + 45 * 24 * 60 * 60 * 1000);
+      const { data, error } = await sb
+        .from(GIGS_TABLE)
+        .select("id, title, start_at, type, description, venue_id")
+        .gte("start_at", now.toISOString())
+        .lte("start_at", horizon.toISOString())
+        .order("start_at", { ascending: true })
+        .limit(500);
+      if (error) throw error;
+
+      const savedVenueIds = new Set(savedVenues.map((row) => String(row.venue_id || "").trim()).filter(Boolean));
+      const followedNames = new Set(followedArtists.map((row) => normalizeActName(row.stage_name)).filter(Boolean));
+
+      const venueNameById = new Map();
+      knownVenues.forEach((venue) => {
+        venueNameById.set(venue.id, venueDisplayLabel(venue));
+      });
+      savedVenues.forEach((row) => {
+        if (row.venue_id && row.venue_name) {
+          const label = row.town ? `${row.venue_name} (${row.town})` : row.venue_name;
+          venueNameById.set(String(row.venue_id), label);
+        }
+      });
+
+      const alertMap = new Map();
+      (data || []).forEach((gig) => {
+        const venueId = String(gig.venue_id || "").trim();
+        const actNameNormalized = normalizeActName(gig.title);
+        const reasons = [];
+
+        if (savedVenueIds.has(venueId)) reasons.push("Saved venue");
+        if (followedNames.has(actNameNormalized)) reasons.push("Followed artist");
+        if (!reasons.length) return;
+
+        alertMap.set(gig.id, {
+          ...gig,
+          venueName: venueNameById.get(venueId) || venueId || "Venue",
+          reasons
+        });
+      });
+
+      renderUpcomingAlerts([...alertMap.values()]);
+    }
+
+    function resolveSelectedVenue() {
+      const typed = normalize(venueSearchEl.value);
+      if (!typed) return null;
+      return knownVenues.find((venue) => {
+        const display = normalize(venueDisplayLabel(venue));
+        const nameOnly = normalize(venue.name);
+        return typed === display || typed === nameOnly;
+      }) || null;
+    }
+
+    function resolveSelectedArtist() {
+      const typed = normalize(artistSearchEl.value);
+      if (!typed) return null;
+      return knownArtists.find((artist) => normalize(artist.stageName) === typed) || null;
+    }
+
+    async function saveVenue() {
+      const venue = resolveSelectedVenue();
+      if (!venue) {
+        statusEl.textContent = "Choose a valid venue from the suggestions.";
+        return;
+      }
+      const { error } = await sb.from(FAN_SAVED_VENUES_TABLE).upsert({
+        fan_user_id: currentUser.id,
+        venue_id: venue.id,
+        venue_name: venue.name,
+        town: venue.town || null
+      }, {
+        onConflict: "fan_user_id,venue_id",
+        ignoreDuplicates: true
+      });
+      if (error) throw error;
+      venueSearchEl.value = "";
+      await loadSavedVenues();
+      await loadUpcomingAlerts();
+      statusEl.textContent = "Venue saved.";
+    }
+
+    async function followArtist() {
+      const artist = resolveSelectedArtist();
+      if (!artist) {
+        statusEl.textContent = "Choose a valid artist from the suggestions.";
+        return;
+      }
+      const { error } = await sb.from(FAN_FOLLOWED_ARTISTS_TABLE).upsert({
+        fan_user_id: currentUser.id,
+        artist_user_id: artist.userId,
+        stage_name: artist.stageName,
+        genre: artist.genre || null
+      }, {
+        onConflict: "fan_user_id,artist_user_id",
+        ignoreDuplicates: true
+      });
+      if (error) throw error;
+      artistSearchEl.value = "";
+      await loadFollowedArtists();
+      await loadUpcomingAlerts();
+      statusEl.textContent = "Artist followed.";
+    }
+
+    async function removeSavedVenue(savedVenueId) {
+      const { error } = await sb
+        .from(FAN_SAVED_VENUES_TABLE)
+        .delete()
+        .eq("id", savedVenueId)
+        .eq("fan_user_id", currentUser.id);
+      if (error) throw error;
+      await loadSavedVenues();
+      await loadUpcomingAlerts();
+      statusEl.textContent = "Saved venue removed.";
+    }
+
+    async function removeFollowedArtist(followId) {
+      const { error } = await sb
+        .from(FAN_FOLLOWED_ARTISTS_TABLE)
+        .delete()
+        .eq("id", followId)
+        .eq("fan_user_id", currentUser.id);
+      if (error) throw error;
+      await loadFollowedArtists();
+      await loadUpcomingAlerts();
+      statusEl.textContent = "Artist unfollowed.";
+    }
+
+    async function loadDashboardData() {
+      await Promise.all([loadVenueOptions(), loadArtistOptions()]);
+      await Promise.all([loadSavedVenues(), loadFollowedArtists()]);
+      await loadUpcomingAlerts();
     }
 
     async function init() {
@@ -186,14 +633,66 @@
         return;
       }
 
-      const email = data.session.user.email || "fan";
+      currentUser = data.session.user;
+      const email = currentUser.email || "fan";
       welcomeEl.textContent = `Signed in as ${email}`;
-      statusEl.textContent = "Session active.";
+      statusEl.textContent = "Session active. Loading dashboard...";
+
+      try {
+        await loadDashboardData();
+        statusEl.textContent = "Session active.";
+      } catch (loadErr) {
+        if (isTableMissingError(loadErr)) {
+          setupHintEl.style.display = "block";
+          statusEl.textContent = "Session active. Feature tables are not installed yet.";
+          renderSavedVenues([]);
+          renderFollowedArtists([]);
+          renderUpcomingAlerts([]);
+          return;
+        }
+        throw loadErr;
+      }
     }
 
     signOutBtn.addEventListener("click", async () => {
       await sb.auth.signOut();
       goLogin();
+    });
+
+    saveVenueBtn.addEventListener("click", async () => {
+      try {
+        await saveVenue();
+      } catch (err) {
+        statusEl.textContent = err?.message || "Could not save venue.";
+      }
+    });
+
+    followArtistBtn.addEventListener("click", async () => {
+      try {
+        await followArtist();
+      } catch (err) {
+        statusEl.textContent = err?.message || "Could not follow artist.";
+      }
+    });
+
+    savedVenuesListEl.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-remove-saved-venue]");
+      if (!button) return;
+      try {
+        await removeSavedVenue(button.getAttribute("data-remove-saved-venue"));
+      } catch (err) {
+        statusEl.textContent = err?.message || "Could not remove saved venue.";
+      }
+    });
+
+    followedArtistsListEl.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-remove-followed-artist]");
+      if (!button) return;
+      try {
+        await removeFollowedArtist(button.getAttribute("data-remove-followed-artist"));
+      } catch (err) {
+        statusEl.textContent = err?.message || "Could not unfollow artist.";
+      }
     });
 
     sb.auth.onAuthStateChange((event, session) => {
