@@ -497,8 +497,17 @@
           popupHtml += `<div style="margin-top:6px;"><a href="${link}" target="_blank">Get Directions</a></div>`;
 
           const marker = L.marker([venue.lat, venue.lng], { icon }).bindPopup(popupHtml);
+
+          marker.on('click', () => {
+            gtag('event', 'venue_pin_click', {
+              venue_id: venueId,
+              venue_name: venue.name,
+              gig_count: count,
+              has_gigs: isActive
+            });
+          });
+          
           markers.addLayer(marker);
-        }
 
         if (map.getZoom() >= 11) {
           if (!map.hasLayer(markers)) map.addLayer(markers);
