@@ -3,36 +3,73 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>gig upload | Viny</title>
+  <title>Gig Entry | Viny</title>
 
-    <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-W45MGJ0PLH"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-  
     gtag('config', 'G-W45MGJ0PLH');
   </script>
-  
+
   <link rel="stylesheet" href="style.css" />
+
+  <style>
+    .gig-entry-hero {
+      text-align: center;
+      padding: 48px 20px 24px;
+    }
+    .gig-entry-hero h1 {
+      font-size: 32px;
+      font-weight: 700;
+      color: #ff2727;
+      margin: 0 0 8px;
+    }
+    .gig-entry-hero p {
+      font-size: 15px;
+      color: #7a9ab8;
+      margin: 0;
+    }
+    .iframe-wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 16px 48px;
+    }
+    .iframe-wrap iframe {
+      width: 100%;
+      height: 820px;
+      border: none;
+      display: block;
+    }
+  </style>
 </head>
 <body>
+
   <header>
-    <div class="about-header">
-      <h1>Gig Entry</h1>
-      <img src="logo.png" alt="Viny Logo" class="logo">
-    </div>
+    <nav class="main-nav">
+      <a href="index.html" class="nav-logo">Viny</a>
+      <div class="nav-links">
+        <a href="map.html">Map</a>
+        <a href="about.html">About</a>
+        <a href="contact.html">Contact</a>
+      </div>
+    </nav>
   </header>
 
-  <iframe 
-    src="https://script.google.com/macros/s/AKfycbxTccVtO2QxBr-6djEDPbs8_uR7R64zivD3Vth5wyRnonlX5wxUElItki4O6eCH30n7/exec"
-    width="100%"
-    height="750px"
-    frameborder="0"
-    style="border: none;"
-  >
-  </iframe>
+  <main>
+    <div class="gig-entry-hero">
+      <h1>Gig Entry</h1>
+      <p>Add upcoming gigs to the Viny platform</p>
+    </div>
+
+    <div class="iframe-wrap">
+      <iframe
+        src="https://script.google.com/macros/s/AKfycbxTccVtO2QxBr-6djEDPbs8_uR7R64zivD3Vth5wyRnonlX5wxUElItki4O6eCH30n7/exec"
+        scrolling="no"
+      ></iframe>
+    </div>
+  </main>
 
   <footer>
     <p>&copy; 2025 Viny. Connecting music lovers to music communities.</p>
