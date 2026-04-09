@@ -327,6 +327,3 @@ body::before {
   z-index: -1;               /* sit behind all content */
   pointer-events: none;
 }
-
-/* TEMP DIAGNOSTIC — do not leave this in permanently */
-* { background-image: none !important; background-color: transparent !important; }
